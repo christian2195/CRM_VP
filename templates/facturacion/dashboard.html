@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2 class="fw-bold">Panel de Control</h2>
+        <p class="text-muted">Resumen de facturación y cotizaciones activas</p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- Tarjeta de Cotizaciones Activas -->
+    <div class="col-md-6 mb-3 mb-md-0">
+        <div class="card shadow-sm border-primary h-100">
+            <div class="card-body text-center">
+                <h5 class="card-title text-primary">Cotizaciones Activas</h5>
+                <h2 class="display-4 fw-bold">{{ cotizaciones_activas }}</h2>
+                <a href="{% url 'crear_cotizacion' %}" class="btn btn-outline-primary mt-2">Nueva Cotización</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Nueva Tarjeta: Cotizaciones Pendientes de Facturar -->
+    <div class="col-md-6">
+        <div class="card shadow-sm border-warning h-100">
+            <div class="card-header bg-white fw-bold">Cotizaciones Pendientes de Facturar</div>
+            <ul class="list-group list-group-flush" style="max-height: 180px; overflow-y: auto;">
+                {% for cotizacion in cotizaciones_pendientes %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>#{{ cotizacion.id }}</strong> - {{ cotizacion.cliente.nombre_razon_social|truncatechars:20 }}
+                        <br><small class="text-muted">Bs. {{ cotizacion.total }}</small>
+                    </div>
+                    <a href="{% url 'generar_factura' cotizacion.id %}" class="btn btn-sm btn-warning fw-bold">Facturar</a>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-center text-muted py-4">No hay cotizaciones pendientes por facturar.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Últimas Facturas -->
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0 mt-1">Últimas Facturas Emitidas</h5>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>N° Factura</th>
+                    <th>Cliente</th>
+                    <th>Fecha</th>
+                    <th>Total (Bs)</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for factura in facturas %}
+                <tr>
+                    <td><strong>{{ factura.numero_factura }}</strong></td>
+                    <td>{{ factura.cotizacion.cliente.nombre_razon_social }}</td>
+                    <td>{{ factura.fecha_emision|date:"d/m/Y" }}</td>
+                    <td>{{ factura.total }}</td>
+                    <td>
+                        <a href="{% url 'imprimir_factura' factura.id %}" target="_blank" class="btn btn-sm btn-secondary">🖨️ Imprimir</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-4">No hay facturas emitidas aún.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

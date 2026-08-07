@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 mt-2">
+    <div class="col-md-12">
+        <h2 class="fw-bold">Emitir Factura Definitiva</h2>
+        <p class="text-muted">Revisa los detalles de la operación antes de imprimir el documento fiscal.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Columna Izquierda: Detalle de lo que se va a facturar -->
+    <div class="col-md-8 mb-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                <span>Detalle de Servicios / Vehículos</span>
+                <span class="badge bg-secondary">Cotización Origen: #{{ cotizacion.id }}</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="45%">Descripción</th>
+                            <th width="15%" class="text-center">Cant.</th>
+                            <th width="20%" class="text-end">Precio Unit.</th>
+                            <th width="20%" class="text-end">Total (Bs)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in cotizacion.items.all %}
+                        <tr>
+                            <td>
+                                <strong>{{ item.descripcion }}</strong>
+                                {% if item.vehiculo %}
+                                    <br><small class="text-muted">Vehículo: {{ item.vehiculo.marca }} (Placa: {{ item.vehiculo.placa }})</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-center align-middle">{{ item.cantidad }}</td>
+                            <td class="text-end align-middle">{{ item.precio_unitario }}</td>
+                            <!-- Multiplicamos cantidad por precio usando un pequeño tag integrado de Django -->
+                            <td class="text-end align-middle fw-bold text-secondary">
+                                {% widthratio item.precio_unitario 1 item.cantidad %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-light text-end py-3">
+                <div class="d-flex justify-content-end mb-1">
+                    <span class="text-muted me-3">Base Imponible:</span>
+                    <strong>{{ cotizacion.base_imponible }}</strong>
+                </div>
+                <div class="d-flex justify-content-end mb-1">
+                    <span class="text-muted me-3">I.V.A (16%):</span>
+                    <strong>{{ cotizacion.impuesto_iva }}</strong>
+                </div>
+                <div class="d-flex justify-content-end border-top pt-2 mt-2">
+                    <span class="fw-bold fs-5 me-3">TOTAL GENERAL:</span>
+                    <strong class="fs-5 text-primary">Bs. {{ cotizacion.total }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Controles de la Forma Libre -->
+    <div class="col-md-4">
+        <div class="card shadow-sm border-primary">
+            <div class="card-header bg-primary text-white fw-bold">
+                Datos de la Forma Libre
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning py-2 mb-4" style="font-size: 0.85rem;" role="alert">
+                    ⚠️ Verifica el número correlativo en el talonario físico. Esta acción procesará la venta.
+                </div>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Número de Factura</label>
+                        {{ form.numero_factura }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-bold">Número de Control</label>
+                        {{ form.numero_control }}
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold">Fecha de Emisión</label>
+                        {{ form.fecha_emision }}
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success fw-bold text-uppercase">🧾 Procesar e Imprimir</button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Volver al Panel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
