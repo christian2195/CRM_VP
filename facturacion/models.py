@@ -19,34 +19,40 @@ class Cliente(models.Model):
         return f"{self.tipo_documento}-{self.identificacion} | {self.nombre_razon_social}"
 
 class Vehiculo(models.Model):
-    # Datos Básicos
-    cliente = models.ForeignKey(Cliente, on_delete=models.CASCADE, related_name='vehiculos')
+    # --- Datos Técnicos ---
     marca = models.CharField(max_length=50)
     modelo = models.CharField(max_length=50)
-    placa = models.CharField(max_length=15, blank=True, null=True) # Puede estar en blanco si es nuevo
-    anio = models.PositiveIntegerField(verbose_name="Año")
-    color = models.CharField(max_length=30)
+    color = models.CharField(max_length=50)
+    placa = models.CharField(max_length=20, blank=True, null=True)
+    anio = models.IntegerField(verbose_name="Año")
+    clase = models.CharField(max_length=50)
+    tipo = models.CharField(max_length=50)
+    uso = models.CharField(max_length=50)
+    transmision = models.CharField(max_length=50)
+    tipo_combustible = models.CharField(max_length=50)
+    num_puestos = models.IntegerField(verbose_name="N° de Puestos")
+    num_ejes = models.IntegerField(verbose_name="N° de Ejes")
+    peso_tara = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Peso (Tara)")
+    capacidad_carga = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Capacidad de Carga (KG)")
     
-    # Ficha Técnica para Trámites
-    clase = models.CharField(max_length=50, blank=True, null=True) 
-    tipo = models.CharField(max_length=50, blank=True, null=True) 
-    uso = models.CharField(max_length=50, blank=True, null=True)
-    tipo_combustible = models.CharField(max_length=20, default='GASOLINA')
-    transmision = models.CharField(max_length=20, blank=True, null=True)
-    num_puestos = models.PositiveIntegerField(default=5)
-    num_ejes = models.PositiveIntegerField(default=2)
-    peso_tara = models.PositiveIntegerField(help_text="Peso en KG", blank=True, null=True)
-    capacidad_carga = models.PositiveIntegerField(help_text="Capacidad en KG", blank=True, null=True)
+    # --- Identificación ---
+    serial_motor = models.CharField(max_length=100, verbose_name="Serial Motor")
+    serial_carroceria_niv = models.CharField(max_length=150, verbose_name="Serial Carrocería y NIV")
     
-    # Seriales (Únicos)
-    serial_motor = models.CharField(max_length=100, unique=True)
-    serial_carroceria = models.CharField(max_length=100, unique=True)
-    serial_niv = models.CharField(max_length=100, unique=True)
-    serie_version = models.CharField(max_length=50, blank=True, null=True)
+    # --- Datos de Importación y Nacionalización ---
+    certificado_origen = models.CharField(max_length=100, blank=True, null=True, verbose_name="Certificado de Origen")
+    servicio = models.CharField(max_length=50, blank=True, null=True)
+    puerto_entrada = models.CharField(max_length=100, blank=True, null=True, verbose_name="Puerto de Entrada")
+    fecha_liquidacion = models.DateField(blank=True, null=True, verbose_name="Fecha de Liquidación")
+    planilla_liquidacion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Planilla de Liquidación")
+    fecha_facturacion = models.DateField(blank=True, null=True, verbose_name="Fecha de Facturación")
+    factura_adquisicion = models.CharField(max_length=100, blank=True, null=True, verbose_name="Factura de Adquisición")
+    refeciv = models.CharField(max_length=100, blank=True, null=True, verbose_name="REFECIV")
+    fecha_fin_convenio = models.DateField(blank=True, null=True, verbose_name="Fecha Fin del Convenio")
 
     def __str__(self):
-        return f"{self.marca} {self.modelo} - NIV: {self.serial_niv[-6:]}"
-
+        return f"{self.marca} {self.modelo} - Placa: {self.placa or 'S/P'}"
+        
 class Cotizacion(models.Model):
     ESTADO_CHOICES = [
         ('B', 'Borrador'),

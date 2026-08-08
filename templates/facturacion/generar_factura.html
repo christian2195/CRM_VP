@@ -4,78 +4,111 @@
 <div class="row mb-4 mt-2">
     <div class="col-md-12">
         <h2 class="fw-bold">Emitir Factura Definitiva</h2>
-        <p class="text-muted">Revisa los detalles de la operación antes de imprimir el documento fiscal.</p>
+        <p class="text-muted">Revisa y modifica los detalles de la operación antes de imprimir el documento fiscal.</p>
     </div>
 </div>
 
-<div class="row">
-    <!-- Columna Izquierda: Detalle de lo que se va a facturar -->
-    <div class="col-md-8 mb-4">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
-                <span>Detalle de Servicios / Vehículos</span>
-                <span class="badge bg-secondary">Cotización Origen: #{{ cotizacion.id }}</span>
-            </div>
-            <div class="card-body p-0">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th width="45%">Descripción</th>
-                            <th width="15%" class="text-center">Cant.</th>
-                            <th width="20%" class="text-end">Precio Unit.</th>
-                            <th width="20%" class="text-end">Total (Bs)</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in cotizacion.items.all %}
-                        <tr>
-                            <td>
-                                <strong>{{ item.descripcion }}</strong>
-                                {% if item.vehiculo %}
-                                    <br><small class="text-muted">Vehículo: {{ item.vehiculo.marca }} (Placa: {{ item.vehiculo.placa }})</small>
-                                {% endif %}
-                            </td>
-                            <td class="text-center align-middle">{{ item.cantidad }}</td>
-                            <td class="text-end align-middle">{{ item.precio_unitario }}</td>
-                            <!-- Multiplicamos cantidad por precio usando un pequeño tag integrado de Django -->
-                            <td class="text-end align-middle fw-bold text-secondary">
-                                {% widthratio item.precio_unitario 1 item.cantidad %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer bg-light text-end py-3">
-                <div class="d-flex justify-content-end mb-1">
-                    <span class="text-muted me-3">Base Imponible:</span>
-                    <strong>{{ cotizacion.base_imponible }}</strong>
+<form method="POST" id="factura-form">
+    {% csrf_token %}
+    <div class="row">
+        <!-- Columna Izquierda: Detalle Editable -->
+        <div class="col-md-8 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                    <span>Detalle de Servicios / Vehículos</span>
+                    <div>
+                        <span class="badge bg-secondary me-2">Cotización Origen: #{{ cotizacion.id }}</span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarFila()">+ Agregar Línea</button>
+                    </div>
                 </div>
-                <div class="d-flex justify-content-end mb-1">
-                    <span class="text-muted me-3">I.V.A (16%):</span>
-                    <strong>{{ cotizacion.impuesto_iva }}</strong>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" id="tabla-items">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="20%">Vehículo</th>
+                                <th width="35%">Descripción</th>
+                                <th width="10%">Cant.</th>
+                                <th width="15%">Precio Unit.</th>
+                                <th width="5%" class="text-center">IVA</th>
+                                <th width="10%">Total</th>
+                                <th width="5%"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="items-body">
+                            <!-- Pre-cargamos los ítems que ya tenía la cotización -->
+                            {% for item in cotizacion.items.all %}
+                            <tr>
+                                <td>
+                                    <select name="item_vehiculo[]" class="form-select form-select-sm">
+                                        <option value="">-- Ninguno --</option>
+                                        {% for vehiculo in vehiculos_disponibles %}
+                                            <option value="{{ vehiculo.id }}" {% if item.vehiculo and item.vehiculo.id == vehiculo.id %}selected{% endif %}>
+                                                {{ vehiculo.placa }} - {{ vehiculo.marca }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="item_descripcion[]" class="form-control form-control-sm" value="{{ item.descripcion }}" required>
+                                </td>
+                                <td>
+                                    <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc" min="1" value="{{ item.cantidad }}" required>
+                                </td>
+                                <td>
+                                    <!-- Usamos stringformat para asegurar que el decimal se renderice correctamente para el input -->
+                                    <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc" step="0.01" value="{{ item.precio_unitario|stringformat:'f' }}" required>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <input type="checkbox" name="item_iva_calc[]" class="form-check-input input-calc" {% if item.aplica_iva %}checked{% endif %}>
+                                    <input type="hidden" name="item_iva[]" value="{% if item.aplica_iva %}on{% else %}off{% endif %}" class="hidden-iva-val">
+                                </td>
+                                <td class="align-middle fw-bold text-end row-total">0.00</td>
+                                <td class="text-center align-middle">
+                                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarFila(this)">X</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
-                <div class="d-flex justify-content-end border-top pt-2 mt-2">
-                    <span class="fw-bold fs-5 me-3">TOTAL GENERAL:</span>
-                    <strong class="fs-5 text-primary">Bs. {{ cotizacion.total }}</strong>
+                
+                <!-- Totales en tiempo real -->
+                <div class="card-footer bg-light text-end py-3">
+                    <div class="row justify-content-end">
+                        <div class="col-md-5">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Base Imponible:</span>
+                                <strong id="resumen-subtotal">0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted">Monto Exento:</span>
+                                <strong id="resumen-exento">0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">I.V.A (16%):</span>
+                                <strong id="resumen-iva">0.00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-2 mt-2">
+                                <span class="fw-bold fs-5">TOTAL GENERAL:</span>
+                                <strong class="fs-5 text-primary" id="resumen-total">0.00</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Columna Derecha: Controles de la Forma Libre -->
-    <div class="col-md-4">
-        <div class="card shadow-sm border-primary">
-            <div class="card-header bg-primary text-white fw-bold">
-                Datos de la Forma Libre
-            </div>
-            <div class="card-body">
-                <div class="alert alert-warning py-2 mb-4" style="font-size: 0.85rem;" role="alert">
-                    ⚠️ Verifica el número correlativo en el talonario físico. Esta acción procesará la venta.
+        <!-- Columna Derecha: Controles de la Forma Libre -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-primary">
+                <div class="card-header bg-primary text-white fw-bold">
+                    Datos de la Forma Libre
                 </div>
+                <div class="card-body">
+                    <div class="alert alert-warning py-2 mb-4" style="font-size: 0.85rem;" role="alert">
+                        ⚠️ Verifica el número correlativo en el talonario físico. Esta acción procesará la venta.
+                    </div>
 
-                <form method="POST">
-                    {% csrf_token %}
                     <div class="mb-3">
                         <label class="form-label text-muted fw-bold">Número de Factura</label>
                         {{ form.numero_factura }}
@@ -93,9 +126,120 @@
                         <button type="submit" class="btn btn-success fw-bold text-uppercase">🧾 Procesar e Imprimir</button>
                         <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Volver al Panel</a>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</form>
+
+<!-- TEMPLATE OCULTO PARA JAVASCRIPT (Nuevas Filas) -->
+<template id="fila-template">
+    <tr>
+        <td>
+            <select name="item_vehiculo[]" class="form-select form-select-sm">
+                <option value="">-- Ninguno --</option>
+                {% for vehiculo in vehiculos_disponibles %}
+                    <option value="{{ vehiculo.id }}">{{ vehiculo.placa }} - {{ vehiculo.marca }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="text" name="item_descripcion[]" class="form-control form-control-sm" required>
+        </td>
+        <td>
+            <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc" min="1" value="1" required>
+        </td>
+        <td>
+            <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc" step="0.01" value="0.00" required>
+        </td>
+        <td class="text-center align-middle">
+            <input type="checkbox" name="item_iva_calc[]" class="form-check-input input-calc" checked>
+            <input type="hidden" name="item_iva[]" value="on" class="hidden-iva-val">
+        </td>
+        <td class="align-middle fw-bold text-end row-total">0.00</td>
+        <td class="text-center align-middle">
+            <button type="button" class="btn btn-sm btn-danger" onclick="eliminarFila(this)">X</button>
+        </td>
+    </tr>
+</template>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Inicializar eventos para las filas precargadas desde la base de datos
+        const filasExistentes = document.querySelectorAll('#items-body tr');
+        filasExistentes.forEach(fila => {
+            const inputs = fila.querySelectorAll('.input-calc');
+            inputs.forEach(input => {
+                input.addEventListener('input', calcularTotales);
+                input.addEventListener('change', calcularTotales);
+            });
+
+            const checkbox = fila.querySelector('input[type="checkbox"]');
+            const hiddenIva = fila.querySelector('.hidden-iva-val');
+            checkbox.addEventListener('change', function() {
+                hiddenIva.value = this.checked ? "on" : "off";
+            });
+        });
+
+        // Ejecutamos el cálculo una vez para mostrar los totales iniciales
+        calcularTotales();
+    });
+
+    function agregarFila() {
+        const template = document.getElementById('fila-template');
+        const tbody = document.getElementById('items-body');
+        const clone = template.content.cloneNode(true);
+        
+        const inputs = clone.querySelectorAll('.input-calc');
+        inputs.forEach(input => {
+            input.addEventListener('input', calcularTotales);
+            input.addEventListener('change', calcularTotales);
+        });
+
+        const checkbox = clone.querySelector('input[type="checkbox"]');
+        const hiddenIva = clone.querySelector('.hidden-iva-val');
+        checkbox.addEventListener('change', function() {
+            hiddenIva.value = this.checked ? "on" : "off";
+        });
+
+        tbody.appendChild(clone);
+        calcularTotales();
+    }
+
+    function eliminarFila(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        calcularTotales();
+    }
+
+    function calcularTotales() {
+        const filas = document.querySelectorAll('#items-body tr');
+        let totalBaseImponible = 0;
+        let totalExento = 0;
+        const TASA_IVA = 0.16;
+
+        filas.forEach(fila => {
+            const cantidad = parseFloat(fila.querySelector('input[name="item_cantidad[]"]').value) || 0;
+            const precio = parseFloat(fila.querySelector('input[name="item_precio[]"]').value) || 0;
+            const aplicaIva = fila.querySelector('input[type="checkbox"]').checked;
+            
+            const subtotalFila = cantidad * precio;
+            fila.querySelector('.row-total').textContent = subtotalFila.toFixed(2);
+
+            if (aplicaIva) {
+                totalBaseImponible += subtotalFila;
+            } else {
+                totalExento += subtotalFila;
+            }
+        });
+
+        const totalIva = totalBaseImponible * TASA_IVA;
+        const totalGeneral = totalBaseImponible + totalExento + totalIva;
+
+        document.getElementById('resumen-subtotal').textContent = totalBaseImponible.toFixed(2);
+        document.getElementById('resumen-exento').textContent = totalExento.toFixed(2);
+        document.getElementById('resumen-iva').textContent = totalIva.toFixed(2);
+        document.getElementById('resumen-total').textContent = totalGeneral.toFixed(2);
+    }
+</script>
 {% endblock %}

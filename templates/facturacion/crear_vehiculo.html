@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 mt-2">
+    <div class="col-md-10">
+        <h2 class="fw-bold"><i class="fa-solid fa-car-side text-primary me-2"></i>Registrar Nuevo Vehículo</h2>
+        <p class="text-muted">Ingresa los datos técnicos, de identificación y aduaneros de la nueva unidad.</p>
+    </div>
+    <div class="col-md-2 text-end">
+        <a href="{% url 'lista_vehiculos' %}" class="btn btn-outline-secondary">Cancelar</a>
+    </div>
+</div>
+
+<form method="POST" class="needs-validation">
+    {% csrf_token %}
+    
+    <div class="row">
+        <!-- Columna Izquierda: Datos Técnicos -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-white fw-bold text-primary">
+                    <i class="fa-solid fa-wrench me-2"></i>Datos Técnicos
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Marca</label>
+                            {{ form.marca }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Modelo</label>
+                            {{ form.modelo }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Año</label>
+                            {{ form.anio }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Color</label>
+                            {{ form.color }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Placa</label>
+                            {{ form.placa }}
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Clase</label>
+                            {{ form.clase }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Tipo</label>
+                            {{ form.tipo }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Uso</label>
+                            {{ form.uso }}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Combustible</label>
+                            {{ form.tipo_combustible }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Transmisión</label>
+                            {{ form.transmision }}
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Puestos</label>
+                            {{ form.num_puestos }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Ejes</label>
+                            {{ form.num_ejes }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Tara (Kg)</label>
+                            {{ form.peso_tara }}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold text-muted">Carga (Kg)</label>
+                            {{ form.capacidad_carga }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Identificación y Aduana -->
+        <div class="col-md-6 mb-4">
+            <!-- Tarjeta 2: Identificación -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-white fw-bold text-primary">
+                    <i class="fa-solid fa-barcode me-2"></i>Identificación Serial
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-muted">Serial de Motor</label>
+                            {{ form.serial_motor }}
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label small fw-bold text-muted">Serial de Carrocería / NIV</label>
+                            {{ form.serial_carroceria_niv }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tarjeta 3: Aduana -->
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white fw-bold text-primary">
+                    <i class="fa-solid fa-file-invoice me-2"></i>Nacionalización y Aduana
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Cert. de Origen</label>
+                            {{ form.certificado_origen }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Puerto de Entrada</label>
+                            {{ form.puerto_entrada }}
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Planilla Liquidación</label>
+                            {{ form.planilla_liquidacion }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Fecha Liquidación</label>
+                            {{ form.fecha_liquidacion }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Factura Adquisición</label>
+                            {{ form.factura_adquisicion }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">Fecha Facturación</label>
+                            {{ form.fecha_facturacion }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold text-muted">REFECIV</label>
+                            {{ form.refeciv }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Servicio</label>
+                            {{ form.servicio }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">Fin de Convenio</label>
+                            {{ form.fecha_fin_convenio }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Flotante para Guardar -->
+    <div class="card shadow-sm border-0 bg-light">
+        <div class="card-body text-end">
+            <button type="submit" class="btn btn-success btn-lg fw-bold px-5">
+                <i class="fa-solid fa-floppy-disk me-2"></i> Guardar Vehículo
+            </button>
+        </div>
+    </div>
+</form>
+{% endblock %}

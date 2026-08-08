@@ -1,14 +1,15 @@
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.db import transaction
+from django.contrib import messages 
+
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from .models import Factura
-from django.shortcuts import render
-from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion
-from .forms import CotizacionForm
-from django.utils import timezone
-from .forms import FacturaForm
-from django.db import transaction
+
+# <-- Agregado 'Cliente' al final de esta lista
+from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
+from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
 
 def imprimir_factura_forma_libre(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
@@ -45,7 +46,6 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.drawString(120, 690, f"{cliente.direccion[:100]}")
     
     # --- ITEMS ---
-    # Imprimimos las cabeceras. Si la forma libre ya las trae preimpresas, puedes borrar estas 6 líneas
     y_items = 650
     p.setFont("Helvetica-Bold", 9)
     p.drawString(50, y_items, "CANTIDAD")
@@ -60,7 +60,6 @@ def imprimir_factura_forma_libre(request, factura_id):
     vehiculo_principal = None
 
     for item in cotizacion.items.all():
-        # Capturamos el primer vehículo que encontremos para armar la ficha técnica más abajo
         if item.vehiculo and not vehiculo_principal:
             vehiculo_principal = item.vehiculo
             
@@ -114,9 +113,10 @@ def imprimir_factura_forma_libre(request, factura_id):
         p.drawString(280, y_vehiculo-45, "PESO (TARA):")
         p.drawString(280, y_vehiculo-60, "CAPACIDAD DE CARGA (KG.):")
         p.drawString(280, y_vehiculo-75, "SERIAL DE MOTOR:")
-        p.drawString(280, y_vehiculo-90, "SERIAL DE CARROCERIA:")
-        p.drawString(280, y_vehiculo-105, "SERIAL NIV:")
-        p.drawString(280, y_vehiculo-120, "SERIE/VERSIÓN:")
+        # CORREGIDO: unificamos "SERIAL DE CARROCERIA" y "SERIAL NIV" en una sola línea
+        p.drawString(280, y_vehiculo-90, "SERIAL CARROCERÍA / NIV:")
+        # Las líneas siguientes que estaban para "SERIAL NIV" y "SERIE/VERSIÓN" se corren
+        p.drawString(280, y_vehiculo-105, "SERIE/VERSIÓN:")
         
         # Valores - Columna Derecha
         p.setFont("Helvetica", 9)
@@ -126,9 +126,10 @@ def imprimir_factura_forma_libre(request, factura_id):
         p.drawString(430, y_vehiculo-45, str(vehiculo_principal.peso_tara or ''))
         p.drawString(430, y_vehiculo-60, str(vehiculo_principal.capacidad_carga or ''))
         p.drawString(430, y_vehiculo-75, str(vehiculo_principal.serial_motor or ''))
-        p.drawString(430, y_vehiculo-90, str(vehiculo_principal.serial_carroceria or ''))
-        p.drawString(430, y_vehiculo-105, str(vehiculo_principal.serial_niv or ''))
-        p.drawString(430, y_vehiculo-120, str(vehiculo_principal.serie_version or ''))
+        # CORREGIDO: ahora mostramos el campo unificado
+        p.drawString(430, y_vehiculo-90, str(vehiculo_principal.serial_carroceria_niv or ''))
+        # La línea de SERIE/VERSIÓN se mantiene donde corresponde
+        p.drawString(430, y_vehiculo-105, str(vehiculo_principal.serie_version or ''))
 
     # --- PIE DE PÁGINA (TOTALES) ---
     p.setFont("Helvetica-Bold", 10)
@@ -224,28 +225,116 @@ def crear_cotizacion(request):
     return render(request, 'facturacion/crear_cotizacion.html', context)
 
 def generar_factura(request, cotizacion_id):
-    # Buscamos la cotización que queremos facturar
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     
-    # Si la cotización ya tiene una factura asignada, evitamos que se duplique
     if hasattr(cotizacion, 'factura'):
         return redirect('dashboard')
         
+    # Necesitamos enviar los vehículos al frontend por si agregan una línea nueva
+    vehiculos_disponibles = Vehiculo.objects.all()
+
     if request.method == 'POST':
         form = FacturaForm(request.POST)
         if form.is_valid():
-            factura = form.save(commit=False)
-            factura.cotizacion = cotizacion
-            # Recuerda que en nuestro models.py programamos el save() para que copie 
-            # los totales de la cotización automáticamente y cambie el estado a 'F'.
-            factura.save()
+            with transaction.atomic():
+                # 1. Borramos los ítems viejos de la cotización
+                cotizacion.items.all().delete()
+                
+                # 2. Capturamos los ítems nuevos o modificados desde el JavaScript
+                vehiculos_ids = request.POST.getlist('item_vehiculo[]')
+                descripciones = request.POST.getlist('item_descripcion[]')
+                cantidades = request.POST.getlist('item_cantidad[]')
+                precios = request.POST.getlist('item_precio[]')
+                ivas = request.POST.getlist('item_iva[]')
+                
+                # 3. Recreamos los ítems con los valores de última hora
+                for i in range(len(descripciones)):
+                    vehiculo_id = vehiculos_ids[i] if vehiculos_ids[i] else None
+                    if vehiculo_id:
+                        vehiculo_obj = Vehiculo.objects.get(id=vehiculo_id)
+                    else:
+                        vehiculo_obj = None
+                        
+                    aplica_iva = True if ivas[i] == 'on' else False
+                    
+                    ItemCotizacion.objects.create(
+                        cotizacion=cotizacion,
+                        vehiculo=vehiculo_obj,
+                        descripcion=descripciones[i],
+                        cantidad=int(cantidades[i]),
+                        precio_unitario=precios[i],
+                        aplica_iva=aplica_iva
+                    )
+                
+                # Refrescamos la cotización de la base de datos para obtener los nuevos totales calculados
+                cotizacion.refresh_from_db()
+
+                # 4. Guardamos la factura con los datos actualizados
+                factura = form.save(commit=False)
+                factura.cotizacion = cotizacion
+                factura.save()
+                
+            # Redirigimos directamente al PDF
             return redirect('imprimir_factura', factura_id=factura.id)
     else:
-        # Ponemos la fecha de hoy por defecto
         form = FacturaForm(initial={'fecha_emision': timezone.now().date()})
         
     context = {
         'form': form,
-        'cotizacion': cotizacion
+        'cotizacion': cotizacion,
+        'vehiculos_disponibles': vehiculos_disponibles,
     }
     return render(request, 'facturacion/generar_factura.html', context)
+
+def lista_clientes(request):
+    # Traemos todos los clientes ordenados alfabéticamente
+    clientes = Cliente.objects.all().order_by('nombre_razon_social')
+    return render(request, 'facturacion/lista_clientes.html', {'clientes': clientes})
+
+def lista_vehiculos(request):
+    # Traemos todos los vehículos ordenados por año (los más nuevos primero)
+    vehiculos = Vehiculo.objects.all().order_by('-anio', 'marca')
+    return render(request, 'facturacion/lista_vehiculos.html', {'vehiculos': vehiculos})
+
+def crear_vehiculo(request):
+    if request.method == 'POST':
+        form = VehiculoForm(request.POST)
+        if form.is_valid():
+            vehiculo = form.save()
+            messages.success(request, f'¡Vehículo {vehiculo.marca} {vehiculo.modelo} registrado con éxito!')
+            return redirect('lista_vehiculos') # Lo mandamos de vuelta al inventario
+        else:
+            messages.error(request, 'Ocurrió un error al guardar. Revisa los campos.')
+    else:
+        form = VehiculoForm()
+        
+    return render(request, 'facturacion/crear_vehiculo.html', {'form': form})
+
+def editar_vehiculo(request, vehiculo_id):
+    vehiculo = get_object_or_404(Vehiculo, id=vehiculo_id)
+    if request.method == 'POST':
+        form = VehiculoForm(request.POST, instance=vehiculo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'¡Vehículo {vehiculo.marca} {vehiculo.modelo} actualizado con éxito!')
+            return redirect('lista_vehiculos')
+        else:
+            messages.error(request, 'Ocurrió un error al actualizar. Revisa los campos.')
+    else:
+        form = VehiculoForm(instance=vehiculo)
+        
+    return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
+
+def crear_cliente(request):
+    if request.method == 'POST':
+        form = ClienteForm(request.POST)
+        if form.is_valid():
+            cliente = form.save()
+            messages.success(request, f'¡Cliente {cliente.nombre_razon_social} registrado con éxito!')
+            return redirect('lista_clientes')
+        else:
+            messages.error(request, 'Ocurrió un error al guardar el cliente. Revisa los campos.')
+    else:
+        form = ClienteForm()
+        
+    return render(request, 'facturacion/crear_cliente.html', {'form': form})

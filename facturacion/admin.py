@@ -11,9 +11,9 @@ class ClienteAdmin(admin.ModelAdmin):
 
 @admin.register(Vehiculo)
 class VehiculoAdmin(admin.ModelAdmin):
-    # Actualizado para mostrar el NIV y otros datos nuevos
-    list_display = ('marca', 'modelo', 'placa', 'serial_niv', 'cliente')
-    search_fields = ('placa', 'serial_niv', 'serial_motor', 'cliente__nombre_razon_social')
+    list_display = ('marca', 'modelo', 'anio', 'placa', 'serial_carroceria_niv')
+    search_fields = ('marca', 'modelo', 'placa', 'serial_carroceria_niv', 'serial_motor')
+    list_filter = ('marca', 'anio', 'tipo', 'clase')
 
 class ItemCotizacionInline(admin.TabularInline):
     model = ItemCotizacion

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="fw-bold"><i class="fa-solid fa-warehouse text-primary me-2"></i>Inventario de Vehículos</h2>
+        <p class="text-muted">Consulta de unidades disponibles, especificaciones técnicas y datos aduaneros.</p>
+    </div>
+    <div class="col-md-4 text-end d-flex align-items-center justify-content-end">
+        <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm">
+            <i class="fa-solid fa-plus me-1"></i> Nuevo Vehículo
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Unidad</th>
+                        <th>Identificación</th>
+                        <th>Especificaciones</th>
+                        <th>Clase / Tipo</th>
+                        <th class="text-center">Origen</th>
+                        <th class="text-center pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vehiculo in vehiculos %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex flex-column">
+                                <span class="fw-bold text-dark">{{ vehiculo.marca }} {{ vehiculo.modelo }}</span>
+                                <small class="text-muted">Año: {{ vehiculo.anio }} | Color: {{ vehiculo.color|default:"N/E" }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="badge bg-secondary mb-1 align-self-start" style="font-size: 0.8rem;">
+                                    Placa: {{ vehiculo.placa|default:"S/P" }}
+                                </span>
+                                <small class="font-monospace text-muted" title="NIV/Carrocería">NIV: {{ vehiculo.serial_carroceria_niv|default:"N/E" }}</small>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column small">
+                                <span><i class="fa-solid fa-gas-pump text-muted me-1"></i> {{ vehiculo.tipo_combustible|default:"N/E" }} | Trans: {{ vehiculo.transmision|default:"N/E" }}</span>
+                                <span><i class="fa-solid fa-weight-hanging text-muted me-1"></i> Tara: {{ vehiculo.peso_tara }}Kg | Carga: {{ vehiculo.capacidad_carga }}Kg</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="fw-medium">{{ vehiculo.clase|default:"N/E" }}</span>
+                                <small class="text-muted">{{ vehiculo.tipo|default:"N/E" }} ({{ vehiculo.uso|default:"N/E" }})</small>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            {% if vehiculo.certificado_origen %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle" title="Certificado: {{ vehiculo.certificado_origen }}">Importado</span>
+                            {% else %}
+                                <span class="badge bg-light text-secondary border">Nacional</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center pe-4">
+                            <!-- Botón actualizado hacia la vista de edición interna -->
+                            <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-outline-primary" title="Editar Detalles">
+                                <i class="fa-solid fa-pen"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-car-side fs-2 mb-3 d-block text-black-50"></i>
+                            No hay vehículos registrados en el inventario.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
