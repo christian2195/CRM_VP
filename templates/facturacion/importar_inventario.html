@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="fw-bold"><i class="fa-solid fa-file-excel text-success me-2"></i>Carga Masiva de Inventario</h2>
+        <p class="text-muted">Sube un archivo Excel (.xlsx) estructurado para registrar múltiples vehículos de forma automática.</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{% url 'lista_vehiculos' %}" class="btn btn-outline-secondary">Volver al Inventario</a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label for="archivo_excel" class="form-label fw-bold text-dark">Seleccionar archivo Excel (.xlsx)</label>
+                        <input class="form-control" type="file" id="archivo_excel" name="archivo_excel" accept=".xlsx" required>
+                        <div class="form-text mt-2">
+                            Asegúrate de que la primera fila contenga los encabezados (Marca, Modelo, Anio, Color, Placa, Serial Carroceria NIV, etc.).
+                        </div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success fw-bold py-2">
+                            <i class="fa-solid fa-upload me-2"></i> Procesar Carga Masiva
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
