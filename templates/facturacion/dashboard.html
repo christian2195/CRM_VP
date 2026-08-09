@@ -67,6 +67,11 @@
                             <span class="fw-bold text-primary">#VP-{{ cotizacion.id }}</span>
                             <div class="text-dark fw-medium small">{{ cotizacion.cliente.nombre_razon_social|truncatechars:26 }}</div>
                             <small class="text-muted font-monospace fw-semibold">Bs. {{ cotizacion.total|floatformat:2 }}</small>
+                            <br>
+                            <!-- Identificador de Usuario -->
+                            <small class="text-secondary" style="font-size: 0.75rem;">
+                                <i class="fa-solid fa-user me-1 text-primary opacity-75"></i>{{ cotizacion.usuario.username|title|default:"Sistema" }}
+                            </small>
                         </div>
                         <div class="btn-group shadow-sm" role="group">
                             <a href="{% url 'imprimir_cotizacion' cotizacion.id %}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Imprimir Presupuesto PDF">
@@ -103,6 +108,7 @@
                                 <th class="ps-4">N° Factura</th>
                                 <th>Cliente</th>
                                 <th>Fecha</th>
+                                <th>Emitido Por</th>
                                 <th class="text-end">Total (Bs.)</th>
                                 <th class="text-center pe-4">Documentos</th>
                             </tr>
@@ -117,6 +123,12 @@
                                     </div>
                                 </td>
                                 <td><small class="text-muted">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
+                                <!-- Columna de Usuario -->
+                                <td>
+                                    <small class="text-secondary fw-medium">
+                                        <i class="fa-solid fa-user-pen me-1 opacity-75"></i>{{ factura.usuario.username|title|default:"N/A" }}
+                                    </small>
+                                </td>
                                 <td class="text-end font-monospace small">Bs. {{ factura.total|floatformat:2 }}</td>
                                 <td class="text-center pe-4">
                                     <div class="btn-group shadow-sm" role="group">
@@ -134,7 +146,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     <i class="fa-solid fa-folder-open fs-3 mb-2 d-block text-black-50"></i>
                                     No hay facturas emitidas recientemente.
                                 </td>

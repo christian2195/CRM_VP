@@ -20,6 +20,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -109,9 +110,49 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Configuraciones de Autenticación
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
+
+# ==========================================
+# CONFIGURACIÓN DEL PANEL ADMIN (JAZZMIN)
+# ==========================================
+JAZZMIN_SETTINGS = {
+    "site_title": "Admin EMVEPRO",
+    "site_header": "EMVEPRO Automotriz",
+    "site_brand": "CRM EMVEPRO",
+    "site_logo": "https://img.icons8.com/color/96/car--v1.png", 
+    "site_icon": None,
+    "welcome_sign": "Bienvenido al Panel de Control - EMVEPRO Automotriz",
+    "copyright": "Empresa Venezuela Productiva C.A. / EMVEPRO",
+    "search_model": ["facturacion.Cliente", "facturacion.Vehiculo", "facturacion.Factura"],
+    
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.user": "fas fa-user",
+        "auth.Group": "fas fa-users",
+        "facturacion.Cliente": "fas fa-address-book",
+        "facturacion.Vehiculo": "fas fa-warehouse",
+        "facturacion.Cotizacion": "fas fa-file-invoice",
+        "facturacion.Factura": "fas fa-file-invoice-dollar",
+    },
+    
+    "show_ui_builder": True,
+}
+
+# Ajustes de la interfaz visual (Modo Oscuro/Claro)
+JAZZMIN_UI_TWEAKS = {
+    "theme": "pulse",
+    "dark_mode_theme": "darkly",
+}
+

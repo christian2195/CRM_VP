@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.5px;"><i class="fa-solid fa-file-circle-check text-warning me-2"></i>Historial de Cotizaciones</h2>
+        <p class="text-secondary mb-0">Listado general de presupuestos emitidos a clientes.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <!-- BOTÓN PARA CREAR NUEVA COTIZACIÓN -->
+        <a href="{% url 'crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4">
+            <i class="fa-solid fa-plus me-1"></i> Nueva Cotización
+        </a>
+    </div>
+</div>
+
+<!-- Barra de Búsqueda -->
+<form method="GET" class="row g-3 mb-4">
+    <div class="col-md-10">
+        <div class="input-group shadow-sm rounded-pill overflow-hidden bg-white">
+            <span class="input-group-text bg-transparent border-0 ps-4"><i class="fa-solid fa-search text-secondary"></i></span>
+            <input type="text" name="q" class="form-control border-0 bg-transparent shadow-none" placeholder="Buscar por N° Cotización, Cliente o RIF..." value="{{ request.GET.q|default:'' }}">
+        </div>
+    </div>
+    <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-primary fw-bold shadow-sm rounded-pill">Buscar</button>
+    </div>
+</form>
+
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase fs-7 text-secondary">
+                    <tr>
+                        <th class="ps-4">N° Cotización</th>
+                        <th>Cliente / RIF</th>
+                        <th>Fecha</th>
+                        <th>Emitido Por</th>
+                        <th>Estado</th>
+                        <th class="text-end">Total (Bs.)</th>
+                        <th class="text-center pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cot in cotizaciones %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary">#VP-{{ cot.id }}</td>
+                        <td>
+                            <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;" title="{{ cot.cliente.nombre_razon_social }}">
+                                {{ cot.cliente.nombre_razon_social }}
+                            </div>
+                            <small class="text-secondary font-monospace">{{ cot.cliente.tipo_documento }}-{{ cot.cliente.identificacion }}</small>
+                        </td>
+                        <td>{{ cot.fecha_creacion|date:"d/m/Y" }}</td>
+                        <td>
+                            <small class="text-secondary fw-medium">
+                                <i class="fa-solid fa-user me-1 opacity-75"></i>{{ cot.usuario.username|title|default:"N/A" }}
+                            </small>
+                        </td>
+                        <td>
+                            {% if cot.estado == 'F' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-2">Facturada</span>
+                            {% elif cot.estado == 'A' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-2">Anulada</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill px-2">Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end font-monospace fw-semibold">Bs. {{ cot.total|floatformat:2 }}</td>
+                        <td class="text-center pe-4">
+                            <div class="btn-group shadow-sm rounded-pill bg-light p-1" role="group">
+                                <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="PDF Cotización">
+                                    <i class="fa-solid fa-file-pdf text-danger"></i>
+                                </a>
+                                {% if cot.estado != 'F' %}
+                                <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="Generar Factura">
+                                    <i class="fa-solid fa-file-invoice text-warning"></i>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-file-circle-xmark fs-2 mb-2 d-block text-black-50 opacity-50"></i>
+                            No se encontraron cotizaciones.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

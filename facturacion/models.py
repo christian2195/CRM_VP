@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db import models
 from decimal import Decimal
 
@@ -71,7 +72,7 @@ class Cotizacion(models.Model):
     base_imponible = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     impuesto_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     total = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
-
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Emitido por')
     def actualizar_totales(self):
         items = self.items.all()
         calc_exento = Decimal('0.00')
@@ -107,6 +108,13 @@ class ItemCotizacion(models.Model):
     aplica_iva = models.BooleanField(default=True)
 
 class Factura(models.Model):
+    ESTADOS_PAGO = [
+        ('PENDIENTE', 'Por Pagar'),
+        ('PARCIAL', 'Pago Parcial'),
+        ('PAGADA', 'Pagada'),
+        ('CANCELADA', 'Cancelada'),
+    ]
+    
     cotizacion = models.OneToOneField(Cotizacion, on_delete=models.RESTRICT, related_name='factura')
     numero_factura = models.CharField(max_length=20, unique=True)
     numero_control = models.CharField(max_length=20, unique=True)
@@ -117,7 +125,7 @@ class Factura(models.Model):
     base_imponible = models.DecimalField(max_digits=15, decimal_places=2)
     impuesto_iva = models.DecimalField(max_digits=15, decimal_places=2)
     total = models.DecimalField(max_digits=15, decimal_places=2)
-    
+    usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Emitido por')
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.cotizacion.estado = 'F'

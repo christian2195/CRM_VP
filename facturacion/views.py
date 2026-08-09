@@ -9,10 +9,15 @@ from django.contrib import messages
 from django.db.models import Q
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-
+from django.db.models import Sum, Prefetch
 from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
+from decimal import Decimal
 
+# --- IMPORTACIÓN DE SEGURIDAD ---
+from django.contrib.auth.decorators import login_required
+
+@login_required
 def imprimir_factura_institucional(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     cotizacion = factura.cotizacion
@@ -143,6 +148,7 @@ def imprimir_factura_institucional(request, factura_id):
 
     return response
 
+@login_required
 def imprimir_factura_forma_libre(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     cotizacion = factura.cotizacion
@@ -305,6 +311,7 @@ def imprimir_factura_forma_libre(request, factura_id):
 
     return response
 
+@login_required
 def dashboard(request):
     facturas_recientes = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')[:5]
     cotizaciones_activas = Cotizacion.objects.exclude(estado__in=['F', 'A']).count()
@@ -317,11 +324,13 @@ def dashboard(request):
     }
     return render(request, 'facturacion/dashboard.html', context)
 
+@login_required
 def crear_cotizacion(request):
     if request.method == 'POST':
         form = CotizacionForm(request.POST)
         if form.is_valid():
             cotizacion = form.save(commit=False)
+            cotizacion.usuario = request.user
             cotizacion.save()
             
             descriptions = request.POST.getlist('item_descripcion[]')
@@ -374,6 +383,7 @@ def crear_cotizacion(request):
         'vehiculos_disponibles': vehiculos_disponibles
     })
 
+@login_required
 def generar_factura(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     
@@ -415,6 +425,7 @@ def generar_factura(request, cotizacion_id):
 
                 factura = form.save(commit=False)
                 factura.cotizacion = cotizacion
+                factura.usuario = request.user
                 factura.save()
                 
                 # Usamos 'F' (1 caracter) para respetar el max_length=1 del campo estado
@@ -433,7 +444,35 @@ def generar_factura(request, cotizacion_id):
     }
     return render(request, 'facturacion/generar_factura.html', context)
 
+@login_required
+def exportar_inventario_excel(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="inventario_vehiculos_emvepro.xlsx"'
 
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Inventario"
+
+    columns = [
+        'Marca', 'Modelo', 'Anio', 'Color', 'Placa', 
+        'Serial Carroceria NIV', 'Serial Motor', 'Tipo Combustible', 
+        'Transmision', 'Clase', 'Tipo', 'Uso', 
+        'Peso Tara', 'Capacidad Carga', 'Certificado Origen'
+    ]
+    ws.append(columns)
+
+    for v in Vehiculo.objects.all():
+        ws.append([
+            v.marca, v.modelo, v.anio, v.color, v.placa, 
+            v.serial_carroceria_niv, v.serial_motor, v.tipo_combustible, 
+            v.transmision, v.clase, v.tipo, v.uso, 
+            v.peso_tara, v.capacidad_carga, v.certificado_origen
+        ])
+
+    wb.save(response)
+    return response
+
+@login_required
 def importar_inventario_excel(request):
     if request.method == 'POST':
         excel_file = request.FILES.get('archivo_excel')
@@ -446,6 +485,7 @@ def importar_inventario_excel(request):
             ws = wb.active
             rows = list(ws.iter_rows(values_only=True))
             
+            count = 0
             importados = 0
             actualizados = 0
             
@@ -485,6 +525,8 @@ def importar_inventario_excel(request):
                     Vehiculo.objects.create(**datos_vehiculo, serial_carroceria_niv='')
                     importados += 1
                 
+                count += 1
+                
             messages.success(request, f'¡Carga masiva completada! {importados} nuevos, {actualizados} actualizados por NIV.')
             return redirect('lista_vehiculos')
         except Exception as e:
@@ -493,10 +535,19 @@ def importar_inventario_excel(request):
             
     return render(request, 'facturacion/importar_inventario.html')
 
+@login_required
 def lista_clientes(request):
-    clientes = Cliente.objects.all().order_by('nombre_razon_social')
-    return render(request, 'facturacion/lista_clientes.html', {'clientes': clientes})
+    # Precargamos las cotizaciones y sus facturas asociadas para un rendimiento óptimo
+    clientes = Cliente.objects.prefetch_related(
+        Prefetch('cotizaciones', queryset=Cotizacion.objects.prefetch_related('factura', 'items__vehiculo'))
+    ).order_by('-id')
+    
+    context = {
+        'clientes': clientes,
+    }
+    return render(request, 'facturacion/lista_clientes.html', context)
 
+@login_required
 def lista_vehiculos(request):
     query = request.GET.get('q')
     vehiculos = Vehiculo.objects.all()
@@ -510,6 +561,7 @@ def lista_vehiculos(request):
     vehiculos = vehiculos.order_by('-anio', 'marca')
     return render(request, 'facturacion/lista_vehiculos.html', {'vehiculos': vehiculos})
 
+@login_required
 def crear_vehiculo(request):
     if request.method == 'POST':
         form = VehiculoForm(request.POST)
@@ -524,6 +576,7 @@ def crear_vehiculo(request):
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form})
 
+@login_required
 def editar_vehiculo(request, vehiculo_id):
     vehiculo = get_object_or_404(Vehiculo, id=vehiculo_id)
     if request.method == 'POST':
@@ -539,6 +592,7 @@ def editar_vehiculo(request, vehiculo_id):
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
 
+@login_required
 def crear_cliente(request):
     if request.method == 'POST':
         form = ClienteForm(request.POST)
@@ -553,6 +607,7 @@ def crear_cliente(request):
         
     return render(request, 'facturacion/crear_cliente.html', {'form': form})
 
+@login_required
 def imprimir_cotizacion(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     cliente = cotizacion.cliente
@@ -654,77 +709,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.save()
     return response
 
-def exportar_inventario_excel(request):
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="inventario_vehiculos_emvepro.xlsx"'
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Inventario"
-
-    columns = [
-        'Marca', 'Modelo', 'Anio', 'Color', 'Placa', 
-        'Serial Carroceria NIV', 'Serial Motor', 'Tipo Combustible', 
-        'Transmision', 'Clase', 'Tipo', 'Uso', 
-        'Peso Tara', 'Capacidad Carga', 'Certificado Origen'
-    ]
-    ws.append(columns)
-
-    for v in Vehiculo.objects.all():
-        ws.append([
-            v.marca, v.modelo, v.anio, v.color, v.placa, 
-            v.serial_carroceria_niv, v.serial_motor, v.tipo_combustible, 
-            v.transmision, v.clase, v.tipo, v.uso, 
-            v.peso_tara, v.capacidad_carga, v.certificado_origen
-        ])
-
-    wb.save(response)
-    return response
-
-def importar_inventario_excel(request):
-    if request.method == 'POST':
-        excel_file = request.FILES.get('archivo_excel')
-        if not excel_file:
-            messages.error(request, 'Por favor seleccione un archivo Excel válido.')
-            return redirect('importar_inventario')
-
-        try:
-            wb = openpyxl.load_workbook(excel_file)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            
-            count = 0
-            for row in rows[1:]:
-                if not row or not row[0]:
-                    continue
-                
-                Vehiculo.objects.create(
-                    marca=row[0] or '',
-                    modelo=row[1] or '',
-                    anio=int(row[2]) if row[2] else 2026,
-                    color=row[3] or '',
-                    placa=row[4] or '',
-                    serial_carroceria_niv=row[5] or '',
-                    serial_motor=row[6] or '',
-                    tipo_combustible=row[7] or '',
-                    transmision=row[8] or '',
-                    clase=row[9] or '',
-                    tipo=row[10] or '',
-                    uso=row[11] or '',
-                    peso_tara=float(row[12]) if row[12] else 0.0,
-                    capacidad_carga=float(row[13]) if row[13] else 0.0,
-                    certificado_origen=str(row[14]) if len(row) > 14 and row[14] else ''
-                )
-                count += 1
-                
-            messages.success(request, f'¡Carga masiva exitosa! Se importaron {count} vehículos al inventario.')
-            return redirect('lista_vehiculos')
-        except Exception as e:
-            messages.error(request, f'Error al procesar el archivo: {e}')
-            return redirect('importar_inventario')
-            
-    return render(request, 'facturacion/importar_inventario.html')
-
+@login_required
 def imprimir_certificado_origen(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     cotizacion = factura.cotizacion
@@ -799,3 +784,142 @@ def imprimir_certificado_origen(request, factura_id):
     p.showPage()
     p.save()
     return response
+
+@login_required
+def estado_financiero(request):
+    # Consolidado general de facturas emitidas
+    total_facturado = Factura.objects.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
+    total_base = Factura.objects.aggregate(Sum('base_imponible'))['base_imponible__sum'] or Decimal('0.00')
+    total_iva = Factura.objects.aggregate(Sum('impuesto_iva'))['impuesto_iva__sum'] or Decimal('0.00')
+    total_exento = Factura.objects.aggregate(Sum('monto_exento'))['monto_exento__sum'] or Decimal('0.00')
+    
+    # Listado detallado de facturas para la auditoría financiera
+    facturas = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')
+    
+    # Cotizaciones pendientes de cobro / facturación
+    cotizaciones_pendientes = Cotizacion.objects.exclude(estado__in=['F', 'A'])
+    monto_pendiente = cotizaciones_pendientes.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
+
+    context = {
+        'total_facturado': total_facturado,
+        'total_base': total_base,
+        'total_iva': total_iva,
+        'total_exento': total_exento,
+        'monto_pendiente': monto_pendiente,
+        'facturas': facturas,
+        'cotizaciones_pendientes': cotizaciones_pendientes,
+    }
+    return render(request, 'facturacion/estado_financiero.html', context)
+
+@login_required
+def actualizar_pago_factura(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    if request.method == 'POST':
+        estado = request.POST.get('estado_pago')
+        porcentaje = request.POST.get('porcentaje_pago')
+        
+        if estado in dict(Factura.ESTADOS_PAGO).keys():
+            factura.estado_pago = estado
+            factura.porcentaje_pago = int(porcentaje)
+            
+            # Si el porcentaje es 100, aseguramos que el estado cambie a PAGADA
+            if factura.porcentaje_pago >= 100:
+                factura.estado_pago = 'PAGADA'
+                factura.porcentaje_pago = 100
+            elif factura.porcentaje_pago == 0:
+                factura.estado_pago = 'PENDIENTE'
+                
+            factura.save()
+            messages.success(request, f'Estatus de pago de la factura {factura.numero_factura} actualizado con éxito.')
+            
+    return redirect('estado_financiero')
+
+@login_required
+def historial_facturas(request):
+    query = request.GET.get('q')
+    facturas = Factura.objects.select_related('cotizacion__cliente').all()
+    
+    if query:
+        facturas = facturas.filter(
+            Q(numero_factura__icontains=query) |
+            Q(numero_control__icontains=query) |
+            Q(cotizacion__cliente__nombre_razon_social__icontains=query) |
+            Q(cotizacion__cliente__identificacion__icontains=query)
+        )
+        
+    facturas = facturas.order_by('-fecha_emision', '-numero_factura')
+    return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas})
+
+@login_required
+def exportar_facturas_excel(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="CONSOLIDADO_SERIE_A_FACTURACION.xlsx"'
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Consolidado Serie A"
+
+    # 1. Agregamos 'Emitido Por' al final de las cabeceras
+    headers = [
+        'Fecha Factura', 'Nro Factura', 'Nro Control', 'Estatus de Pago', 'Cliente', 
+        'Cedula/Rif', 'Dirección', 'Telefonos', 'Descripción', 
+        'Base Imponible', 'IVA 16%', 'EXENTO (E.)', 'Total General', 
+        'Marca', 'Modelo', 'Color', 'Placa', 'Año', 'Clase', 'Tipo', 'Uso',
+        'Serial Motor', 'Serial Carrocería NIV', 'Emitido Por'
+    ]
+    
+    # Estilo básico para la cabecera
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+
+    # 2. Agregamos 'usuario' a select_related para optimizar la consulta
+    facturas = Factura.objects.select_related('cotizacion__cliente', 'usuario').prefetch_related('cotizacion__items__vehiculo').order_by('numero_factura')
+    
+    diccionario_estados = {
+        'PENDIENTE': 'Por Pagar',
+        'PARCIAL': 'Pago Parcial',
+        'PAGADA': 'Pagada',
+        'CANCELADA': 'Cancelada'
+    }
+    
+    for f in facturas:
+        cliente = f.cotizacion.cliente
+        item = f.cotizacion.items.first()
+        v = item.vehiculo if item else None
+        
+        estatus_texto = diccionario_estados.get(getattr(f, 'estado_pago', 'PENDIENTE'), 'Por Pagar')
+        
+        # 3. Extraemos el nombre del usuario, si existe
+        nombre_usuario = f.usuario.username.title() if f.usuario else 'N/A'
+        
+        ws.append([
+            f.fecha_emision.strftime('%d/%m/%Y'), f.numero_factura, getattr(f, 'numero_control', 'N/A'), estatus_texto, 
+            cliente.nombre_razon_social, f"{cliente.tipo_documento}-{cliente.identificacion}", 
+            cliente.direccion, cliente.telefono, item.descripcion if item else '',
+            float(f.base_imponible), float(f.impuesto_iva), float(f.monto_exento), float(f.total),
+            v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
+            v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
+            v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
+            nombre_usuario # <--- Añadimos el dato al Excel
+        ])
+
+    wb.save(response)
+    return response
+
+@login_required
+def lista_cotizaciones(request):
+    query = request.GET.get('q')
+    # Traemos todas las cotizaciones ordenadas de la más reciente a la más antigua
+    cotizaciones = Cotizacion.objects.select_related('cliente', 'usuario').all().order_by('-fecha_creacion', '-id')
+    
+    if query:
+        cotizaciones = cotizaciones.filter(
+            Q(id__icontains=query) |
+            Q(cliente__nombre_razon_social__icontains=query) |
+            Q(cliente__identificacion__icontains=query)
+        )
+        
+    return render(request, 'facturacion/lista_cotizaciones.html', {'cotizaciones': cotizaciones})

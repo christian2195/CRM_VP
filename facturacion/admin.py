@@ -21,23 +21,20 @@ class ItemCotizacionInline(admin.TabularInline):
 
 @admin.register(Cotizacion)
 class CotizacionAdmin(admin.ModelAdmin):
-    # Cambiamos 'vehiculo' por 'cliente'
-    list_display = ('id', 'cliente', 'estado', 'total', 'fecha_creacion')
-    list_filter = ('estado', 'fecha_creacion')
+    # Añade 'usuario' a la lista
+    list_display = ('id', 'cliente', 'estado', 'total', 'fecha_creacion', 'usuario')
+    list_filter = ('estado', 'fecha_creacion', 'usuario') # Opcional: para filtrar por usuario
     search_fields = ('cliente__nombre_razon_social', 'cliente__identificacion')
     inlines = [ItemCotizacionInline]
 
 @admin.register(Factura)
 class FacturaAdmin(admin.ModelAdmin):
-    # Agregamos 'boton_imprimir' al final de la lista
-    list_display = ('numero_factura', 'numero_control', 'cotizacion', 'fecha_emision', 'total', 'boton_imprimir')
+    # Añade 'usuario' a la lista
+    list_display = ('numero_factura', 'numero_control', 'cotizacion', 'fecha_emision', 'total', 'usuario', 'boton_imprimir')
+    list_filter = ('usuario', 'fecha_emision') # Opcional: para filtrar por usuario
     search_fields = ('numero_factura', 'numero_control', 'cotizacion__id')
 
-    # Creamos la función que dibuja el botón
     def boton_imprimir(self, obj):
-        # Genera la URL automáticamente buscando el nombre 'imprimir_factura'
         url = reverse('imprimir_factura', args=[obj.id])
-        # Retorna un botón HTML que se abre en una pestaña nueva
         return format_html('<a class="button" href="{}" target="_blank" style="background-color: #417690; color: white; padding: 5px 10px; border-radius: 4px; font-weight: bold;">🖨️ Imprimir</a>', url)
-    
     boton_imprimir.short_description = 'Acción'

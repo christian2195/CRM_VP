@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.5px;">Estado Financiero y Control de Pagos</h2>
+        <p class="text-secondary mb-0">Consolidado de ingresos fiscales, base imponible e historial de cobranza.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'dashboard' %}" class="btn btn-light border shadow-sm rounded-pill px-4">
+            <i class="fa-solid fa-arrow-left me-1"></i> Volver al Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Tarjetas de Resumen Financiero -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-success border-4">
+            <span class="text-secondary fw-semibold text-uppercase fs-7">Total Facturado</span>
+            <div class="h4 fw-bold mt-2 mb-0 font-monospace text-success">Bs. {{ total_facturado|floatformat:2 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-primary border-4">
+            <span class="text-secondary fw-semibold text-uppercase fs-7">Base Imponible</span>
+            <div class="h4 fw-bold mt-2 mb-0 font-monospace">Bs. {{ total_base|floatformat:2 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-info border-4">
+            <span class="text-secondary fw-semibold text-uppercase fs-7">IVA Recaudado (16%)</span>
+            <div class="h4 fw-bold mt-2 mb-0 font-monospace">Bs. {{ total_iva|floatformat:2 }}</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-warning border-4">
+            <span class="text-secondary fw-semibold text-uppercase fs-7">Por Facturar (Pendiente)</span>
+            <div class="h4 fw-bold mt-2 mb-0 font-monospace">Bs. {{ monto_pendiente|floatformat:2 }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla Detallada con Estatus de Pago -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white py-3 px-4 border-bottom">
+        <span class="fw-bold text-dark"><i class="fa-solid fa-wallet me-2 text-success"></i>Auditoría y Cobranza de Facturas</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase fs-7 text-secondary">
+                    <tr>
+                        <th class="ps-4">N° Factura</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Estatus de Pago</th>
+                        <th>% Pago</th>
+                        <th class="text-end">Total (Bs.)</th>
+                        <th class="text-center pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for factura in facturas %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ factura.numero_factura }}</td>
+                        <td><small class="text-secondary">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
+                        <td>
+                            <div class="text-truncate" style="max-width: 180px;" title="{{ factura.cotizacion.cliente.nombre_razon_social }}">
+                                {{ factura.cotizacion.cliente.nombre_razon_social }}
+                            </div>
+                        </td>
+                        <td>
+                            {% if factura.estado_pago == 'PAGADA' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-3">Pagada</span>
+                            {% elif factura.estado_pago == 'PARCIAL' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill px-3">Pago Parcial</span>
+                            {% elif factura.estado_pago == 'CANCELADA' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-3">Cancelada</span>
+                            {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-3">Por Pagar</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="progress flex-grow-1" style="height: 6px; width: 60px;">
+                                    <div class="progress-bar {% if factura.porcentaje_pago == 100 %}bg-success{% elif factura.porcentaje_pago > 0 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width: {{ factura.porcentaje_pago }}%;"></div>
+                                </div>
+                                <small class="fw-bold font-monospace">{{ factura.porcentaje_pago }}%</small>
+                            </div>
+                        </td>
+                        <td class="text-end font-monospace fw-semibold">Bs. {{ factura.total|floatformat:2 }}</td>
+                        <td class="text-center pe-4">
+                            <button class="btn btn-sm btn-light border rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#modalPago{{ factura.id }}">
+                                <i class="fa-solid fa-pen-to-square text-primary me-1"></i> Actualizar
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Modal para Actualizar Pago -->
+                    <div class="modal fade" id="modalPago{{ factura.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow-lg rounded-4">
+                                <form method="POST" action="{% url 'actualizar_pago_factura' factura.id %}">
+                                    {% csrf_token %}
+                                    <div class="modal-header border-0 pb-0">
+                                        <h5 class="fw-bold">Actualizar Cobro - Factura {{ factura.numero_factura }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body text-start">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold small text-secondary">Estatus de Pago</label>
+                                            <select name="estado_pago" class="form-select rounded-3">
+                                                <option value="PENDIENTE" {% if factura.estado_pago == 'PENDIENTE' %}selected{% endif %}>Por Pagar</option>
+                                                <option value="PARCIAL" {% if factura.estado_pago == 'PARCIAL' %}selected{% endif %}>Pago Parcial</option>
+                                                <option value="PAGADA" {% if factura.estado_pago == 'PAGADA' %}selected{% endif %}>Pagada</option>
+                                                <option value="CANCELADA" {% if factura.estado_pago == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-semibold small text-secondary">Porcentaje de Pago (0 - 100%)</label>
+                                            <input type="number" name="porcentaje_pago" class="form-control rounded-3 font-monospace" min="0" max="100" value="{{ factura.porcentaje_pago }}">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 pt-0">
+                                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar Cambios</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-folder-open fs-2 mb-2 d-block text-black-50 opacity-50"></i>
+                            No hay facturas emitidas para gestionar pagos.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
