@@ -6,6 +6,7 @@ services:
     image: postgres:15-alpine
     container_name: crm_db
     restart: always
+    privileged: true
     environment:
       POSTGRES_DB: crm_db
       POSTGRES_USER: crm_user
