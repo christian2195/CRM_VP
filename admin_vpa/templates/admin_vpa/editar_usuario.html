@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-user-pen text-primary me-2"></i>Editar Usuario: {{ usuario_obj.username }}</h2>
+        <p class="text-muted mb-0">Modifica los datos personales, roles y permisos de acceso del usuario.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3">
+            <i class="fa-solid fa-arrow-left me-1"></i> Volver a la Lista
+        </a>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white py-3">
+                <span class="fw-bold text-dark"><i class="fa-solid fa-id-card text-secondary me-2"></i>Formulario de Configuración</span>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Nombre de Usuario (Login)</label>
+                        {{ form.username }}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Nombre</label>
+                            {{ form.first_name }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Apellido</label>
+                            {{ form.last_name }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Correo Electrónico</label>
+                        {{ form.email }}
+                    </div>
+
+                    <hr class="text-secondary opacity-25 my-4">
+
+                    <!-- Sección de Roles (Grupos) -->
+                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-users text-primary me-2"></i>Asignación de Roles</h6>
+                    <div class="mb-4 bg-light p-3 rounded-3 border">
+                        <div class="row">
+                            {% for group in form.groups %}
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    {{ group.tag }}
+                                    <label class="form-check-label fw-semibold text-dark" for="{{ group.id_for_label }}">{{ group.choice_label }}</label>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12 text-muted small">No hay roles creados en el sistema.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <hr class="text-secondary opacity-25 my-4">
+
+                    <!-- Sección de Permisos Específicos -->
+                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-lock text-success me-2"></i>Permisos Granulares (Específicos)</h6>
+                    <div class="mb-4 bg-light p-3 rounded-3 border" style="max-height: 280px; overflow-y: auto;">
+                        <div class="row">
+                            {% for perm in form.user_permissions %}
+                            <div class="col-md-6 mb-2">
+                                <div class="form-check">
+                                    {{ perm.tag }}
+                                    <label class="form-check-label small text-dark" for="{{ perm.id_for_label }}">{{ perm.choice_label }}</label>
+                                </div>
+                            </div>
+                            {% empty %}
+                            <div class="col-12 text-muted small">No hay permisos adicionales disponibles.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <hr class="text-secondary opacity-25 my-4">
+
+                    <h6 class="fw-bold text-dark mb-3">Privilegios y Estado</h6>
+                    
+                    <div class="form-check form-switch mb-2">
+                        {{ form.is_active }}
+                        <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Usuario Activo (Permite iniciar sesión)</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-2">
+                        {{ form.is_staff }}
+                        <label class="form-check-label fw-semibold" for="{{ form.is_staff.id_for_label }}">Acceso al Staff (Personal autorizado)</label>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        {{ form.is_superuser }}
+                        <label class="form-check-label fw-semibold text-danger" for="{{ form.is_superuser.id_for_label }}">Superusuario (Control total del sistema)</label>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                        <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-light rounded-pill px-4 fw-bold me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

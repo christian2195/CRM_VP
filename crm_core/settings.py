@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'facturacion',
+    'admin_vpa' ,
+
 ]
 
 MIDDLEWARE = [

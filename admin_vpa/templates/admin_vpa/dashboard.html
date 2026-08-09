@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-shield-halved text-danger me-2"></i>Centro de Control y Administración</h2>
+        <p class="text-muted mb-0">Gestión de accesos, auditoría de base de datos y parámetros del sistema.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3 me-2">
+            <i class="fa-solid fa-users-gear me-1"></i> Gestionar Usuarios
+        </a>
+        <a href="{% url 'admin_vpa:estado_base_datos' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3">
+            <i class="fa-solid fa-database me-1"></i> Base de Datos
+        </a>
+    </div>
+</div>
+
+<!-- Métricas de Control -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-primary border-4 h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs fw-bold text-primary text-uppercase mb-1">Usuarios del Sistema</div>
+                <div class="h3 mb-0 fw-bold text-dark">{{ total_usuarios }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-success border-4 h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs fw-bold text-success text-uppercase mb-1">Clientes Registrados</div>
+                <div class="h3 mb-0 fw-bold text-dark">{{ total_clientes }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-warning border-4 h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs fw-bold text-warning text-uppercase mb-1">Vehículos en Inventario</div>
+                <div class="h3 mb-0 fw-bold text-dark">{{ total_vehiculos }}</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-0 border-start border-info border-4 h-100 py-2">
+            <div class="card-body">
+                <div class="text-xs fw-bold text-info text-uppercase mb-1">Facturas Emitidas</div>
+                <div class="h3 mb-0 fw-bold text-dark">{{ total_facturas }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Registro de Auditoría (Historial de Cambios) -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white py-3">
+        <span class="fw-bold text-dark"><i class="fa-solid fa-clock-rotate-left text-secondary me-2"></i>Auditoría Reciente de Cambios (Logs del Sistema)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase fs-7 text-secondary">
+                    <tr>
+                        <th class="ps-4">Usuario</th>
+                        <th>Acción</th>
+                        <th>Modelo / Objeto</th>
+                        <th class="text-end pe-4">Fecha y Hora</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in ultimos_logs %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">
+                            <i class="fa-solid fa-user-shield text-primary me-1"></i>{{ log.user.username|title }}
+                        </td>
+                        <td>
+                            {% if log.is_addition %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-2">Creación</span>
+                            {% elif log.is_change %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning rounded-pill px-2">Modificación</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-2">Eliminación</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="text-secondary">{{ log.object_repr }}</span></td>
+                        <td class="text-end pe-4 font-monospace small text-muted">{{ log.action_time|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4 text-secondary">No hay registros de auditoría recientes.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

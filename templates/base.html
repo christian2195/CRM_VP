@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRM - EMVEPRO Automotriz</title>
     
-    <!-- Favicon: apunto directamente al archivo en la raíz de static -->
+    <!-- Favicon -->
     <link rel="shortcut icon" href="{% static 'favicon.ico' %}" type="image/x-icon">
     
     <!-- Bootstrap 5 CSS -->
@@ -45,7 +45,7 @@
     <nav class="navbar navbar-expand-lg navbar-macos sticky-top py-3 mb-4">
         <div class="container-fluid px-4">
             <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="{% url 'dashboard' %}">
-                <!-- LOGO EN VEZ DE CARRITO -->
+                <!-- Logo corporativo -->
                 <img src="{% static 'img/logo_emvepro.png' %}" alt="EMVEPRO Logo" style="height: 38px; width: auto;">
                 <span>EMVEPRO <small class="text-secondary fw-normal fs-6">Automotriz</small></span>
             </a>
@@ -62,9 +62,12 @@
                     <li class="nav-item"><a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'historial_facturas' %}"><i class="fa-solid fa-file-invoice text-info me-1"></i> Facturas</a></li>
                     <li class="nav-item"><a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'estado_financiero' %}"><i class="fa-solid fa-file-invoice-dollar me-1 text-success"></i> Finanzas</a></li>
 
+                    <!-- Botón actualizado al Nuevo Panel Admin Propio -->
                     {% if user.is_superuser %}
                     <li class="nav-item ms-2 border-start ps-3 border-secondary-subtle">
-                        <a class="nav-link fw-bold px-3 rounded-pill text-danger bg-danger bg-opacity-10" href="{% url 'admin:index' %}" target="_blank"><i class="fa-solid fa-shield-halved me-1"></i> Admin</a>
+                        <a class="nav-link fw-bold px-3 rounded-pill text-danger bg-danger bg-opacity-10 border border-danger-subtle" href="{% url 'admin_vpa:index' %}">
+                            <i class="fa-solid fa-shield-halved me-1"></i> Panel Admin
+                        </a>
                     </li>
                     {% endif %}
 
@@ -78,7 +81,7 @@
                         </ul>
                     </li>
                     <li class="nav-item ms-2">
-                        <button id="themeToggle" class="btn btn-sm border rounded-circle p-2" style="width: 38px; height: 38px;"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
+                        <button id="themeToggle" class="btn btn-sm border rounded-circle p-2" style="width: 38px; height: 38px;" title="Cambiar Tema"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
                     </li>
                 </ul>
                 {% endif %}

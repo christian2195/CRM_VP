@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-7">
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-users-gear text-primary me-2"></i>Gestión de Usuarios y Accesos</h2>
+        <p class="text-muted mb-0">Control de personal autorizado, roles y niveles de seguridad del sistema.</p>
+    </div>
+    <div class="col-md-5 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'admin_vpa:index' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3 me-2">
+            <i class="fa-solid fa-arrow-left me-1"></i> Volver al Panel
+        </a>
+        <!-- Enlace rápido para crear usuario desde el Admin nativo -->
+        <a href="/admin/auth/user/add/" target="_blank" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
+            <i class="fa-solid fa-user-plus me-1"></i> Nuevo Usuario
+        </a>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white py-3">
+        <span class="fw-bold text-dark"><i class="fa-solid fa-address-card text-secondary me-2"></i>Lista de Usuarios Registrados</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-uppercase fs-7 text-secondary">
+                    <tr>
+                        <th class="ps-4">Usuario</th>
+                        <th>Nombre y Apellido</th>
+                        <th>Correo Electrónico</th>
+                        <th>Rol / Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in usuarios %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 13px;">
+                                    {{ u.username|first|upper }}
+                                </div>
+                                {{ u.username }}
+                            </div>
+                        </td>
+                        <td>{{ u.first_name }} {{ u.last_name|default:"(No especificado)" }}</td>
+                        <td><span class="text-secondary">{{ u.email|default:"Sin correo" }}</span></td>
+                        <td>
+                            {% if u.is_superuser %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-2">Superusuario</span>
+                            {% elif u.is_staff %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill px-2">Staff / Personal</span>
+                            {% else %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-2">Estándar</span>
+                            {% endif %}
+                            
+                            {% if not u.is_active %}
+                                <span class="badge bg-dark rounded-pill px-2 ms-1">Inactivo</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <!-- Enlace actualizado al formulario propio de edición -->
+                            <a href="{% url 'admin_vpa:editar_usuario' u.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Editar en Panel Propio">
+                                <i class="fa-solid fa-pen-to-square me-1"></i> Editar
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-secondary">No hay usuarios registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
