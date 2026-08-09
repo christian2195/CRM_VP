@@ -71,7 +71,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.environ.get('DB_NAME', 'crm_db'),
         'USER': os.environ.get('DB_USER', 'crm_user'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'crm_password'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'Tecno/*2025*'),
         'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
