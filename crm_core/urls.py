@@ -3,11 +3,13 @@ from django.urls import path, include
 from django.views.generic.base import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib.auth import views as auth_views # Importar vistas de autenticación
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Redirigir la raíz (/) directamente a la pantalla de login
+    path('', RedirectView.as_view(pattern_name='login', permanent=False), name='index'),
 
+    path('admin/', admin.site.urls),
     path('panel-control/', include('admin_vpa.urls')),
     
     # Rutas de Autenticación
@@ -16,7 +18,7 @@ urlpatterns = [
     
     # Rutas de tu App
     path('facturacion/', include('facturacion.urls')), 
-    # (Ajusta la ruta de tu app según como la tengas configurada)
+    
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico')),
 ]
 
