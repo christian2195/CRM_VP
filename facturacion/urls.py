@@ -6,6 +6,7 @@ urlpatterns = [
     path('cotizacion/nueva/', views.crear_cotizacion, name='crear_cotizacion'), # <-- Nueva ruta
     path('cotizacion/imprimir/<int:cotizacion_id>/', views.imprimir_cotizacion, name='imprimir_cotizacion'),
     path('imprimir/<int:factura_id>/', views.imprimir_factura_forma_libre, name='imprimir_factura'),
+    path('facturacion/imprimir-institucional/<int:factura_id>/', views.imprimir_factura_institucional, name='imprimir_factura_institucional'),
     path('cotizacion/<int:cotizacion_id>/facturar/', views.generar_factura, name='generar_factura'),
     path('clientes/', views.lista_clientes, name='lista_clientes'),
     path('clientes/nuevo/', views.crear_cliente, name='crear_cliente'),
@@ -14,4 +15,5 @@ urlpatterns = [
     path('inventario/editar/<int:vehiculo_id>/', views.editar_vehiculo, name='editar_vehiculo'),
     path('inventario/exportar/', views.exportar_inventario_excel, name='exportar_inventario'),
     path('inventario/importar/', views.importar_inventario_excel, name='importar_inventario'),
+    path('facturacion/certificado/<int:factura_id>/', views.imprimir_certificado_origen, name='imprimir_certificado'),
 ]

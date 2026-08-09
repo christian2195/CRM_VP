@@ -19,6 +19,19 @@
     </div>
 </div>
 
+<!-- Barra de Búsqueda Rápida por Texto -->
+<form method="GET" class="row g-3 mb-4">
+    <div class="col-md-10">
+        <div class="input-group shadow-sm">
+            <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-search text-muted"></i></span>
+            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar por marca, modelo, placa o serial NIV..." value="{{ request.GET.q|default:'' }}">
+        </div>
+    </div>
+    <div class="col-md-2 d-grid">
+        <button type="submit" class="btn btn-primary fw-bold shadow-sm">Filtrar</button>
+    </div>
+</form>
+
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
         <div class="table-responsive">
