@@ -72,7 +72,7 @@ DATABASES = {
         'NAME': os.environ.get('DB_NAME', 'crm_db'),
         'USER': os.environ.get('DB_USER', 'crm_user'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'crm_password'),
-        'HOST': os.environ.get('DB_HOST', 'db'),
+        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
         'PORT': os.environ.get('DB_PORT', '5432'),
     }
 }
