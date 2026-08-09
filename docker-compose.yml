@@ -1,31 +1,35 @@
 version: '3.8'
+
 services:
+  # Base de Datos PostgreSQL
   db:
     image: postgres:15-alpine
-    container_name: crm_vehiculos_db
+    container_name: crm_db
+    restart: always
     environment:
-      - POSTGRES_DB=crm_db
-      - POSTGRES_USER=crm_user
-      - POSTGRES_PASSWORD=crm_password
+      POSTGRES_DB: crm_db
+      POSTGRES_USER: crm_user
+      POSTGRES_PASSWORD: Tecno/*2025 # CAMBIA ESTO
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
+  # Aplicación Django (Gunicorn)
   web:
     build: .
-    container_name: crm_vehiculos_web
-    command: python manage.py runserver 0.0.0.0:8000
+    container_name: crm_web
+    restart: always
+    command: gunicorn crm_core.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
-      - "8001:8000"
+      - "8000:8000"
     environment:
+      - DEBUG=False
+      - SECRET_KEY=tecno/*2025 # CAMBIA ESTO
+      - DB_HOST=db
       - DB_NAME=crm_db
       - DB_USER=crm_user
-      - DB_PASSWORD=crm_password
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_PASSWORD=Tecno/*2025
     depends_on:
       - db
 
