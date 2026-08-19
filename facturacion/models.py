@@ -119,13 +119,28 @@ class Factura(models.Model):
     numero_factura = models.CharField(max_length=20, unique=True)
     numero_control = models.CharField(max_length=20, unique=True)
     fecha_emision = models.DateField()
+    tasa_cambio = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        verbose_name='Tasa de Cambio (Bs.)', 
+        default=0.00,
+        help_text="Tasa oficial del BCV al momento de emitir la factura"
+    )
     
+    monto_exento = models.DecimalField(max_digits=15, decimal_places=2)
     # Totales congelados
     monto_exento = models.DecimalField(max_digits=15, decimal_places=2)
     base_imponible = models.DecimalField(max_digits=15, decimal_places=2)
     impuesto_iva = models.DecimalField(max_digits=15, decimal_places=2)
     total = models.DecimalField(max_digits=15, decimal_places=2)
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Emitido por')
+    # --- NUEVO CAMPO PARA COLETILLAS ---
+    coletillas = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Coletillas y Condiciones",
+        default="1. Esta factura se emite sin tachaduras ni enmendaduras.\n2. Los pagos deben realizarse a nombre de EMVEPRO."
+    )
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.cotizacion.estado = 'F'

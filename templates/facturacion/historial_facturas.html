@@ -84,6 +84,10 @@
                                 <a href="{% url 'imprimir_certificado' factura.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="PDF Certificado Origen">
                                     <i class="fa-solid fa-certificate text-success"></i>
                                 </a>
+                               <a href="{% url 'imprimir_factura_institucional_sin_sap' factura.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="PDF Inst. Sin SAP">
+                                   <i class="fa-solid fa-file-pdf text-dark"></i>
+                                </a>
+                            
                             </div>
                         </td>
                     </tr>

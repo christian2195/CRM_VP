@@ -159,3 +159,5 @@ JAZZMIN_UI_TWEAKS = {
     "dark_mode_theme": "darkly",
 }
 
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'

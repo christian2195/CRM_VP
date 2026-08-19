@@ -117,9 +117,18 @@
                         <label class="form-label text-muted fw-bold">Número de Control</label>
                         {{ form.numero_control }}
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-3">
                         <label class="form-label text-muted fw-bold">Fecha de Emisión</label>
                         {{ form.fecha_emision }}
+                    </div>
+                    
+                    <!-- NUEVO CAMPO DE COLETILLAS -->
+                    <div class="mb-4">
+                        <label class="form-label text-muted fw-bold">Coletillas y Condiciones</label>
+                        {{ form.coletillas }}
+                        <div class="form-text text-muted" style="font-size: 0.75rem;">
+                            <i class="fa-solid fa-circle-info"></i> Este texto aparecerá al pie de la factura impresa. Puedes editarlo para esta factura específica.
+                        </div>
                     </div>
                     
                     <div class="d-grid gap-2">
@@ -176,9 +185,11 @@
 
             const checkbox = fila.querySelector('input[type="checkbox"]');
             const hiddenIva = fila.querySelector('.hidden-iva-val');
-            checkbox.addEventListener('change', function() {
-                hiddenIva.value = this.checked ? "on" : "off";
-            });
+            if(checkbox){
+                checkbox.addEventListener('change', function() {
+                    hiddenIva.value = this.checked ? "on" : "off";
+                });
+            }
         });
 
         // Ejecutamos el cálculo una vez para mostrar los totales iniciales
@@ -221,10 +232,14 @@
         filas.forEach(fila => {
             const cantidad = parseFloat(fila.querySelector('input[name="item_cantidad[]"]').value) || 0;
             const precio = parseFloat(fila.querySelector('input[name="item_precio[]"]').value) || 0;
-            const aplicaIva = fila.querySelector('input[type="checkbox"]').checked;
+            const checkboxIva = fila.querySelector('input[type="checkbox"]');
+            const aplicaIva = checkboxIva ? checkboxIva.checked : false;
             
             const subtotalFila = cantidad * precio;
-            fila.querySelector('.row-total').textContent = subtotalFila.toFixed(2);
+            const rowTotalElement = fila.querySelector('.row-total');
+            if(rowTotalElement) {
+                rowTotalElement.textContent = subtotalFila.toFixed(2);
+            }
 
             if (aplicaIva) {
                 totalBaseImponible += subtotalFila;

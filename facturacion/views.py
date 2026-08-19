@@ -17,6 +17,26 @@ from decimal import Decimal
 # --- IMPORTACIÓN DE SEGURIDAD ---
 from django.contrib.auth.decorators import login_required
 
+import openpyxl
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
+from django.http import HttpResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.utils import timezone
+from django.db import transaction
+from django.contrib import messages 
+from django.db.models import Q
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from django.db.models import Sum, Prefetch
+from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
+from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
+from decimal import Decimal
+
+# --- IMPORTACIÓN DE SEGURIDAD ---
+from django.contrib.auth.decorators import login_required
+
+@login_required
 @login_required
 def imprimir_factura_institucional(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
@@ -28,7 +48,7 @@ def imprimir_factura_institucional(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     
-    # --- ENCABEZADO DERECHA (Mismos márgenes) ---
+    # --- ENCABEZADO DERECHA ---
     p.setFont("Helvetica-Bold", 9)
     p.drawString(400, 620, "FACTURA N°:")
     p.drawString(400, 600, "FECHA DE EMISIÓN:")
@@ -39,21 +59,18 @@ def imprimir_factura_institucional(request, factura_id):
     
     # --- DATOS DEL CLIENTE ---
     p.setFont("Helvetica-Bold", 8)
-    p.drawString(40, 540, "NOMBRE(S) Y")
-    p.drawString(40, 530, "APELLIDO (S) O")
-    p.drawString(40, 520, "RAZÓN SOCIAL:")
-    
+    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
     p.drawString(40, 495, "C.I./R.I.F:")
     p.drawString(40, 475, "DIRECCIÓN:")
     p.drawString(40, 455, "TELÉFONO")
     
     p.setFont("Helvetica", 8)
-    p.drawString(150, 530, str(cliente.nombre_razon_social))
+    p.drawString(250, 540, str(cliente.nombre_razon_social))
     p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(150, 455, str(cliente.telefono or ''))
     
-    # --- TABLA DETALLADA DE ÍTEMS / VEHÍCULOS ---
+    # --- TABLA DETALLADA ---
     y_line1 = 435
     p.setLineWidth(1.5)
     p.line(40, y_line1, 560, y_line1)
@@ -80,7 +97,6 @@ def imprimir_factura_institucional(request, factura_id):
     for index, item in enumerate(cotizacion.items.all(), start=1):
         v = item.vehiculo
         subtotal_item = item.cantidad * item.precio_unitario
-        
         p.drawString(44, y_items, str(index))
         p.drawString(62, y_items, str(item.cantidad))
         p.drawString(85, y_items, "1124626")
@@ -92,60 +108,163 @@ def imprimir_factura_institucional(request, factura_id):
         p.drawString(365, y_items, str(v.serial_carroceria_niv if v else ''))
         p.drawString(470, y_items, str(v.transmision if v else 'MANUAL')[:7])
         p.drawRightString(555, y_items, f"{subtotal_item:,.2f}")
-        
         y_items -= 15
 
     p.setLineWidth(1)
     p.line(40, y_items + 4, 560, y_items + 4)
     
-    # --- NOTAS LEGALES AL PIE (IZQUIERDA) ---
+    # --- NOTAS LEGALES ---
     y_notas = y_items - 20
     p.setFont("Helvetica-Bold", 7.5)
-    p.drawString(40, y_notas, "NOTA 1:")
-    p.setFont("Helvetica", 7.5)
-    p.drawString(75, y_notas, "El precio referencial del vehículo se corresponde con el convenio institucional.")
+    p.drawString(40, y_notas, "NOTA 1: El precio referencial del vehículo se corresponde con el convenio institucional.")
     p.drawString(40, y_notas - 10, "Es importante resaltar que para el momento del pago se tomará en cuenta la tasa oficial.")
-    
-    p.setFont("Helvetica-Bold", 7.5)
-    p.drawString(40, y_notas - 25, "NOTA 2:")
-    p.setFont("Helvetica", 7.5)
-    p.drawString(75, y_notas - 25, f"Esta factura corresponde al respaldo administrativo de la cotización VP-{cotizacion.id}.")
+    p.drawString(40, y_notas - 25, f"NOTA 2: Esta factura corresponde al respaldo administrativo de la cotización VP-{cotizacion.id}.")
 
-    # --- PIE DE PÁGINA / TOTALES (DERECHA, MISMOS MÁRGENES) ---
-    y_totales_start = y_notas - 5
+    # --- PIE DE PÁGINA (TOTALES Y COLETILLAS) ---
+    y_totales_start = y_notas - 40
     p.setLineWidth(1)
-    p.line(320, y_totales_start, 560, y_totales_start)
+    p.line(320, y_totales_start + 15, 560, y_totales_start + 15)
     
-    y_tot = y_totales_start - 14
-    
+    y_tot = y_totales_start
+    if factura.coletillas:
+        p.setFont("Helvetica-Bold", 7)
+        p.drawString(40, y_tot, "Condiciones Adicionales:")
+        p.setFont("Helvetica", 6.5)
+        y_col = y_tot - 10
+        for linea in str(factura.coletillas).split('\n'):
+            p.drawString(40, y_col, linea.strip())
+            y_col -= 9
+            
     p.setFont("Helvetica-Bold", 8)
     p.drawString(330, y_tot, "Base Imponible Bs.:")
     p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
-    
     y_tot -= 14
     p.drawString(330, y_tot, "Exento Bs.:")
     p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
-    
     y_tot -= 14
     p.drawString(330, y_tot, "Iva (16%) Bs.:")
     p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
-    
-    y_tot -= 4
-    p.setLineWidth(1)
-    p.line(320, y_tot, 560, y_tot)
-    
-    y_tot -= 12
+    p.line(320, y_tot - 4, 560, y_tot - 4)
+    y_tot -= 14
     p.setFont("Helvetica-Bold", 8.5)
     p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
     p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
-    
-    y_tot -= 4
-    p.setLineWidth(1.5)
-    p.line(320, y_tot, 560, y_tot)
 
     p.showPage()
     p.save()
+    return response
 
+@login_required
+def imprimir_factura_institucional_sin_sap(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    cotizacion = factura.cotizacion
+    cliente = cotizacion.cliente
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Factura_Inst_Sin_SAP_{factura.numero_factura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    
+    # --- ENCABEZADO DERECHA (Bajado 1 cm: de 620 a 590 y 600 a 570) ---
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(400, 590, "FACTURA N°:")
+    p.drawString(400, 570, "FECHA DE EMISIÓN:")
+    
+    p.setFont("Helvetica", 9)
+    p.drawRightString(550, 590, str(factura.numero_factura))
+    p.drawRightString(550, 570, factura.fecha_emision.strftime('%d/%m/%Y'))
+    
+    # --- DATOS DEL CLIENTE ---
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
+    p.drawString(40, 495, "C.I./R.I.F:")
+    p.drawString(40, 475, "DIRECCIÓN:")
+    p.drawString(40, 455, "TELÉFONO")
+    
+    p.setFont("Helvetica", 8)
+    p.drawString(250, 540, str(cliente.nombre_razon_social))
+    p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
+    p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
+    p.drawString(150, 455, str(cliente.telefono or ''))
+    
+    # --- TABLA SIN CÓDIGO SAP ---
+    y_line1 = 435
+    p.setLineWidth(1.5)
+    p.line(40, y_line1, 560, y_line1)
+    
+    p.setFont("Helvetica-Bold", 7)
+    p.drawString(42, y_line1 - 12, "N°")
+    p.drawString(60, y_line1 - 12, "CANT")
+    p.drawString(110, y_line1 - 12, "MARCA / MOD")
+    p.drawString(185, y_line1 - 12, "PLACA")
+    p.drawString(230, y_line1 - 12, "AÑO")
+    p.drawString(260, y_line1 - 12, "COLOR")
+    p.drawString(300, y_line1 - 12, "SERIAL MOTOR")
+    p.drawString(400, y_line1 - 12, "SERIAL NIV / CARROCERIA")
+    p.drawString(500, y_line1 - 12, "PREC.Bs.")
+    
+    y_line2 = y_line1 - 18
+    p.line(40, y_line2, 560, y_line2)
+    
+    y_items = y_line2 - 12
+    p.setFont("Helvetica", 6.5)
+    
+    for index, item in enumerate(cotizacion.items.all(), start=1):
+        v = item.vehiculo
+        subtotal_item = item.cantidad * item.precio_unitario
+        p.drawString(44, y_items, str(index))
+        p.drawString(65, y_items, str(item.cantidad))
+        p.drawString(110, y_items, f"{v.marca if v else ''} {v.modelo if v else item.descripcion[:10]}"[:20])
+        p.drawString(185, y_items, str(v.placa if v else 'S/P'))
+        p.drawString(230, y_items, str(v.anio if v else '2026'))
+        p.drawString(260, y_items, str(v.color if v else ''))
+        p.drawString(300, y_items, str(v.serial_motor if v else ''))
+        p.drawString(400, y_items, str(v.serial_carroceria_niv if v else ''))
+        p.drawRightString(540, y_items, f"{subtotal_item:,.2f}")
+        y_items -= 15
+
+    p.setLineWidth(1)
+    p.line(40, y_items + 4, 560, y_items + 4)
+    
+    # --- NOTAS LEGALES ---
+    y_notas = y_items - 20
+    p.setFont("Helvetica-Bold", 7.5)
+    p.drawString(40, y_notas, "NOTA 1: El precio referencial del vehículo se corresponde con el convenio institucional.")
+    p.drawString(40, y_notas - 10, "Es importante resaltar que para el momento del pago se tomará en cuenta la tasa oficial.")
+    p.drawString(40, y_notas - 25, f"NOTA 2: Esta factura corresponde al respaldo administrativo de la cotización VP-{cotizacion.id}.")
+
+    # --- PIE DE PÁGINA (TOTALES Y COLETILLAS) ---
+    y_totales_start = y_notas - 40
+    p.setLineWidth(1)
+    p.line(320, y_totales_start + 15, 560, y_totales_start + 15)
+    
+    y_tot = y_totales_start
+    if factura.coletillas:
+        p.setFont("Helvetica-Bold", 7)
+        p.drawString(40, y_tot, "Condiciones Adicionales:")
+        p.setFont("Helvetica", 6.5)
+        y_col = y_tot - 10
+        for linea in str(factura.coletillas).split('\n'):
+            p.drawString(40, y_col, linea.strip())
+            y_col -= 9
+            
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(330, y_tot, "Base Imponible Bs.:")
+    p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
+    y_tot -= 14
+    p.drawString(330, y_tot, "Exento Bs.:")
+    p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
+    y_tot -= 14
+    p.drawString(330, y_tot, "Iva (16%) Bs.:")
+    p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
+    p.line(320, y_tot - 4, 560, y_tot - 4)
+    y_tot -= 14
+    p.setFont("Helvetica-Bold", 8.5)
+    p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
+    p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
+
+    p.showPage()
+    p.save()
     return response
 
 @login_required
@@ -158,102 +277,62 @@ def imprimir_factura_forma_libre(request, factura_id):
     response['Content-Disposition'] = f'inline; filename="Factura_{factura.numero_factura}.pdf"'
 
     p = canvas.Canvas(response, pagesize=letter)
-    
-    # --- ENCABEZADO DERECHA ---
     p.setFont("Helvetica-Bold", 9)
     p.drawString(400, 620, "FACTURA N°:")
     p.drawString(400, 600, "FECHA DE EMISIÓN:")
-    
     p.setFont("Helvetica", 9)
     p.drawRightString(550, 620, str(factura.numero_factura))
     p.drawRightString(550, 600, factura.fecha_emision.strftime('%d/%m/%Y'))
     
-    # --- DATOS DEL CLIENTE ---
     p.setFont("Helvetica-Bold", 8)
-    p.drawString(40, 540, "NOMBRE(S) Y")
-    p.drawString(40, 530, "APELLIDO (S) O")
-    p.drawString(40, 520, "RAZÓN SOCIAL:")
-    
+    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
     p.drawString(40, 495, "C.I./R.I.F:")
     p.drawString(40, 475, "DIRECCIÓN:")
     p.drawString(40, 455, "TELÉFONO")
-    
     p.setFont("Helvetica", 8)
-    p.drawString(150, 530, str(cliente.nombre_razon_social))
+    p.drawString(250, 540, str(cliente.nombre_razon_social))
     p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(150, 455, str(cliente.telefono or ''))
     
-    # --- TABLA DE ITEMS ---
     y_line1 = 435
     p.setLineWidth(1.5)
     p.line(40, y_line1, 560, y_line1)
-    
     p.setFont("Helvetica-Bold", 8)
     p.drawString(55, y_line1 - 12, "CANTIDAD")
     p.drawString(130, y_line1 - 12, "DESCRIPCION")
     p.drawString(280, y_line1 - 12, "TIPO DE IVA")
     p.drawString(390, y_line1 - 12, "ALIC.%")
     p.drawRightString(550, y_line1 - 12, "PREC.Bs.")
-    
     y_line2 = y_line1 - 18
     p.line(40, y_line2, 560, y_line2)
     
     y_items = y_line2 - 14
     p.setFont("Helvetica", 8)
-    
     vehiculo_principal = None
-    
     for item in cotizacion.items.all():
         if item.vehiculo and not vehiculo_principal:
             vehiculo_principal = item.vehiculo
-            
         tipo_iva = "ALIC. GENER." if item.aplica_iva else "EXENTO"
         alic_porcentaje = "16,00%" if item.aplica_iva else "0.00%"
         subtotal_item = item.cantidad * item.precio_unitario
-        
         p.drawString(75, y_items, str(item.cantidad))
         p.drawString(130, y_items, item.descripcion[:35])
         p.drawString(280, y_items, tipo_iva)
         p.drawString(390, y_items, alic_porcentaje)
         p.drawRightString(550, y_items, f"{subtotal_item:,.2f}")
-        
         y_items -= 16
 
     p.setLineWidth(1)
     p.line(40, y_items + 4, 560, y_items + 4)
     
-    # --- DESCRIPCIÓN DEL VEHÍCULO ---
     y_veh = y_items - 12
     if vehiculo_principal:
         p.setFont("Helvetica-Bold", 8)
-        p.drawString(40, y_veh, "DESCRIPCIÓN DELVEHÍCULO")
-        
+        p.drawString(40, y_veh, "DESCRIPCIÓN DEL VEHÍCULO")
         y_veh -= 14
-        
-        left_labels = [
-            ("MARCA:", getattr(vehiculo_principal, 'marca', '')),
-            ("MODELO:", getattr(vehiculo_principal, 'modelo', '')),
-            ("COLOR:", getattr(vehiculo_principal, 'color', '')),
-            ("PLACA:", getattr(vehiculo_principal, 'placa', '') or 'S/P'),
-            ("AÑO:", str(getattr(vehiculo_principal, 'anio', ''))),
-            ("CLASE:", getattr(vehiculo_principal, 'clase', '')),
-            ("TIPO:", getattr(vehiculo_principal, 'tipo', '')),
-            ("USO:", getattr(vehiculo_principal, 'uso', '')),
-            ("TRANSMISIÓN:", getattr(vehiculo_principal, 'transmision', ''))
-        ]
-        
-        right_labels = [
-            ("TIPO DE COMBUSTIBLE:", getattr(vehiculo_principal, 'tipo_combustible', '')),
-            ("N° DE PUESTO:", str(getattr(vehiculo_principal, 'num_puestos', ''))),
-            ("N° EJES :", str(getattr(vehiculo_principal, 'num_ejes', ''))),
-            ("PESO (TARA):", str(getattr(vehiculo_principal, 'peso_tara', ''))),
-            ("CAPACIDAD DE CARGA (KG.):", str(getattr(vehiculo_principal, 'capacidad_carga', ''))),
-            ("SERIAL DE MOTOR:", getattr(vehiculo_principal, 'serial_motor', '')),
-            ("SERIAL DE CARROCERIA:", getattr(vehiculo_principal, 'serial_carroceria_niv', '')),
-            ("SERIAL NIV:", getattr(vehiculo_principal, 'serial_carroceria_niv', '')),
-            ("SERIE/VERSIÓN", getattr(vehiculo_principal, 'serie_version', '') or getattr(vehiculo_principal, 'modelo', ''))
-        ]
+        left_labels = [("MARCA:", vehiculo_principal.marca), ("MODELO:", vehiculo_principal.modelo), ("COLOR:", vehiculo_principal.color), ("PLACA:", vehiculo_principal.placa)]
+        right_labels = [("SERIAL MOTOR:", vehiculo_principal.serial_motor), ("SERIAL CARROCERIA:", vehiculo_principal.serial_carroceria_niv)]
         
         y_curr = y_veh
         for label, val in left_labels:
@@ -262,7 +341,6 @@ def imprimir_factura_forma_libre(request, factura_id):
             p.setFont("Helvetica", 8)
             p.drawString(150, y_curr, str(val))
             y_curr -= 13
-            
         y_curr_r = y_veh
         for label, val in right_labels:
             p.setFont("Helvetica-Bold", 8)
@@ -270,45 +348,41 @@ def imprimir_factura_forma_libre(request, factura_id):
             p.setFont("Helvetica", 8)
             p.drawString(410, y_curr_r, str(val))
             y_curr_r -= 13
-            
-        y_totales_start = min(y_curr, y_curr_r) - 10
+        y_totales_start = min(y_curr, y_curr_r) - 20
     else:
         y_totales_start = y_veh - 10
 
-    # --- PIE DE PÁGINA (TOTALES) ---
+    # --- PIE DE PÁGINA (TOTALES Y COLETILLAS) ---
     p.setLineWidth(1)
-    p.line(40, y_totales_start, 560, y_totales_start)
+    p.line(40, y_totales_start + 15, 560, y_totales_start + 15)
+    y_tot = y_totales_start
     
-    y_tot = y_totales_start - 14
-    
+    if factura.coletillas:
+        p.setFont("Helvetica-Bold", 7.5)
+        p.drawString(40, y_tot, "Condiciones y Coletillas:")
+        p.setFont("Helvetica", 7)
+        y_col = y_tot - 10
+        for linea in str(factura.coletillas).split('\n'):
+            p.drawString(40, y_col, linea.strip())
+            y_col -= 9
+            
     p.setFont("Helvetica-Bold", 8)
     p.drawRightString(440, y_tot, "BASE IMPONIBLE GRAVABLE")
     p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
-    
     y_tot -= 14
     p.drawRightString(440, y_tot, "I.V.A. (16%)")
     p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
-    
     y_tot -= 14
     p.drawRightString(440, y_tot, "EXENTO (E)")
     p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
-    
-    y_tot -= 4
-    p.setLineWidth(1)
-    p.line(40, y_tot, 560, y_tot)
-    
-    y_tot -= 12
-    p.setFont("Helvetica-Bold", 8)
+    p.line(320, y_tot - 4, 560, y_tot - 4)
+    y_tot -= 14
+    p.setFont("Helvetica-Bold", 9)
     p.drawRightString(440, y_tot, "TOTAL GENERAL")
     p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
-    
-    y_tot -= 4
-    p.setLineWidth(1.5)
-    p.line(40, y_tot, 560, y_tot)
 
     p.showPage()
     p.save()
-
     return response
 
 @login_required
@@ -446,30 +520,69 @@ def generar_factura(request, cotizacion_id):
 
 @login_required
 def exportar_inventario_excel(request):
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="inventario_vehiculos_emvepro.xlsx"'
-
+    # 1. Creamos un libro de Excel en blanco
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Inventario"
+    ws.title = "Inventario Vehículos"
 
-    columns = [
-        'Marca', 'Modelo', 'Anio', 'Color', 'Placa', 
-        'Serial Carroceria NIV', 'Serial Motor', 'Tipo Combustible', 
-        'Transmision', 'Clase', 'Tipo', 'Uso', 
-        'Peso Tara', 'Capacidad Carga', 'Certificado Origen'
+    # 2. Definimos las 26 cabeceras EXACTAS que pide tu formato
+    cabeceras = [
+        'N°', 'MARCA', 'MODELO', 'COLOR', 'PLACA', 'AÑO', 'CLASE', 'TIPO', 
+        'USO', 'TRANSMISION', 'TIPO DE COMBUSTIBLE', 'N° DE PUESTOS', 'N° DE EJES', 
+        'PESO (TARA)', 'CAPACIDAD DE CARGA (KG)', 'SERIAL MOTOR', 'SERIAL CARROCERIA Y NIV', 
+        'CERTIFICADO DE ORIGEN', 'SERVICIO', 'PUERTO DE ENTRADA', 'FECHA DE LIQUIDACIÓN', 
+        'PLANILLA DE LIQUIDACIÓN', 'FECHA DE FACTURACIÓN', 'FACTURA DE ADQUISIÓN', 
+        'REFECIV', 'FECHA FIN DEL CONVENIO'
     ]
-    ws.append(columns)
+    
+    # Agregamos las cabeceras a la primera fila
+    ws.append(cabeceras)
 
-    for v in Vehiculo.objects.all():
-        ws.append([
-            v.marca, v.modelo, v.anio, v.color, v.placa, 
-            v.serial_carroceria_niv, v.serial_motor, v.tipo_combustible, 
-            v.transmision, v.clase, v.tipo, v.uso, 
-            v.peso_tara, v.capacidad_carga, v.certificado_origen
-        ])
+    # 3. Traemos todos los vehículos de la base de datos
+    vehiculos = Vehiculo.objects.all().order_by('id')
 
+    # 4. Llenamos las filas una por una
+    for contador, v in enumerate(vehiculos, start=1):
+        fila = [
+            contador,  # N° autogenerado
+            v.marca,
+            v.modelo,
+            v.color,
+            v.placa,
+            v.anio,
+            v.clase,
+            v.tipo,
+            v.uso,
+            v.transmision,
+            v.tipo_combustible,
+            v.num_puestos,
+            v.num_ejes,
+            v.peso_tara,
+            v.capacidad_carga,
+            v.serial_motor,
+            v.serial_carroceria_niv,
+            v.certificado_origen,
+            v.servicio,
+            v.puerto_entrada,
+            # Formateamos las fechas a texto si existen para evitar conflictos en Excel
+            v.fecha_liquidacion.strftime('%Y-%m-%d') if v.fecha_liquidacion else '',
+            v.planilla_liquidacion,
+            v.fecha_facturacion.strftime('%Y-%m-%d') if v.fecha_facturacion else '',
+            v.factura_adquisicion,
+            v.refeciv,
+            v.fecha_fin_convenio.strftime('%Y-%m-%d') if v.fecha_fin_convenio else ''
+        ]
+        ws.append(fila)
+
+    # 5. Preparamos la respuesta para que el navegador descargue el archivo
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=inventario_vehiculos_emvepro.xlsx'
+    
+    # Guardamos el Excel en la respuesta
     wb.save(response)
+    
     return response
 
 @login_required

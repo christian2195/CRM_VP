@@ -25,11 +25,13 @@ class ItemCotizacionForm(forms.ModelForm):
 class FacturaForm(forms.ModelForm):
     class Meta:
         model = Factura
-        fields = ['numero_factura', 'numero_control', 'fecha_emision']
+        # ¡Aquí está la magia! Se agregó 'coletillas' a la lista para que Django lo renderice
+        fields = ['numero_factura', 'numero_control', 'fecha_emision', 'coletillas']
         widgets = {
             'numero_factura': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. 070887'}),
             'numero_control': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. 00-000000'}),
             'fecha_emision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'coletillas': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
         }
 
 class VehiculoForm(forms.ModelForm):

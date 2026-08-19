@@ -13,6 +13,25 @@
 
 <div class="row justify-content-center">
     <div class="col-md-8">
+        
+        <!-- BLOQUE DE NOTIFICACIONES -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show shadow-sm" role="alert">
+                    <strong>
+                        {% if message.tags == 'error' %}
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> ¡Atención!
+                        {% else %}
+                            <i class="fa-solid fa-circle-check me-1"></i> ¡Éxito!
+                        {% endif %}
+                    </strong> 
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+        <!-- FIN BLOQUE DE NOTIFICACIONES -->
+
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
                 <form method="POST" enctype="multipart/form-data">
@@ -21,7 +40,7 @@
                         <label for="archivo_excel" class="form-label fw-bold text-dark">Seleccionar archivo Excel (.xlsx)</label>
                         <input class="form-control" type="file" id="archivo_excel" name="archivo_excel" accept=".xlsx" required>
                         <div class="form-text mt-2">
-                            Asegúrate de que la primera fila contenga los encabezados (Marca, Modelo, Anio, Color, Placa, Serial Carroceria NIV, etc.).
+                            Asegúrate de que la primera fila contenga los encabezados (Marca, Modelo, Anio, Color, Placa, Serial Carroceria NIV, etc.) o que correspondan a la plantilla del sistema.
                         </div>
                     </div>
                     <div class="d-grid">
