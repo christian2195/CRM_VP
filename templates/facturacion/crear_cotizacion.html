@@ -50,8 +50,8 @@
                 <table class="table table-bordered align-middle mb-0" id="tabla-items">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 25%;">Vehículo Asociado (Opcional)</th>
-                            <th style="width: 35%;">Descripción del Ítem / Servicio</th>
+                            <th style="width: 30%;">Vehículo Asociado (Opcional)</th>
+                            <th style="width: 30%;">Descripción del Ítem / Servicio</th>
                             <th style="width: 10%;" class="text-center">Cantidad</th>
                             <th style="width: 15%;" class="text-end">Precio Unit. (Bs.)</th>
                             <th style="width: 10%;" class="text-center">¿Aplica IVA?</th>
@@ -62,10 +62,12 @@
                         <!-- Fila inicial por defecto -->
                         <tr>
                             <td>
-                                <select name="item_vehiculo[]" class="form-select form-select-sm">
+                                <select name="item_vehiculo[]" class="form-select form-select-sm font-monospace">
                                     <option value="">-- Sin vehículo --</option>
                                     {% for v in vehiculos_disponibles %}
-                                    <option value="{{ v.id }}">{{ v.marca }} {{ v.modelo }} ({{ v.anio }})</option>
+                                    <option value="{{ v.id }}">
+                                        [{{ v.placa|default:"S/P" }}] - {{ v.marca }} {{ v.modelo }} ({{ v.anio }}) - NIV: {{ v.serial_carroceria_niv }}
+                                    </option>
                                     {% endfor %}
                                 </select>
                             </td>
