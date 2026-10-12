@@ -461,17 +461,33 @@ def crear_cotizacion(request):
 def generar_factura(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     
-    # Si ya fue facturada, redirigimos al dashboard
-    if cotizacion.estado == 'F' or hasattr(cotizacion, 'factura'):
-        messages.warning(request, 'Esta cotización ya ha sido facturada previamente.')
+    # Verificamos si existe una factura vinculada previamente
+    factura_previa = getattr(cotizacion, 'factura', None)
+    
+    # Permitimos avanzar SOLO si no está facturada, o si la factura que tiene está CANCELADA
+    if cotizacion.estado == 'F' and (not factura_previa or factura_previa.estado_pago != 'CANCELADA'):
+        messages.warning(request, 'Esta cotización ya ha sido facturada previamente y está activa.')
         return redirect('dashboard')
         
-    vehiculos_disponibles = Vehiculo.objects.all()
+    vehiculos_disponibles = Vehiculo.objects.filter(
+        Q(estado='Disponible') | 
+        Q(id__in=cotizacion.items.filter(vehiculo__isnull=False).values_list('vehiculo_id', flat=True))
+    )
 
     if request.method == 'POST':
-        form = FacturaForm(request.POST)
+        # Si la estamos re-facturando sobre una cancelada, usamos "instance" para reciclar el registro
+        if factura_previa and factura_previa.estado_pago == 'CANCELADA':
+            form = FacturaForm(request.POST, instance=factura_previa)
+        else:
+            form = FacturaForm(request.POST)
+            
         if form.is_valid():
             with transaction.atomic():
+                for item in cotizacion.items.all():
+                    if item.vehiculo:
+                        item.vehiculo.estado = 'Disponible'
+                        item.vehiculo.save()
+                
                 cotizacion.items.all().delete()
                 
                 vehiculos_ids = request.POST.getlist('item_vehiculo[]')
@@ -480,18 +496,35 @@ def generar_factura(request, cotizacion_id):
                 precios = request.POST.getlist('item_precio[]')
                 ivas = request.POST.getlist('item_iva[]')
                 
+                tasa_cambio_str = request.POST.get('tasa_cambio', '1.00')
+                tasa_cambio = Decimal(tasa_cambio_str) if tasa_cambio_str else Decimal('1.00')
+                
+                base_imponible_usd = Decimal('0.00')
+                monto_exento_usd = Decimal('0.00')
+                
                 for i in range(len(descripciones)):
                     vehiculo_id = vehiculos_ids[i] if vehiculos_ids[i] else None
                     vehiculo_obj = Vehiculo.objects.filter(id=vehiculo_id).first() if vehiculo_id else None
                         
                     aplica_iva = True if ivas[i] == 'on' else False
+                    cant = int(cantidades[i])
+                    precio_usd = Decimal(precios[i])
+                    
+                    if aplica_iva:
+                        base_imponible_usd += (cant * precio_usd)
+                    else:
+                        monto_exento_usd += (cant * precio_usd)
+                    
+                    if vehiculo_obj:
+                        vehiculo_obj.estado = 'Vendido'
+                        vehiculo_obj.save()
                     
                     ItemCotizacion.objects.create(
                         cotizacion=cotizacion,
                         vehiculo=vehiculo_obj,
                         descripcion=descripciones[i],
-                        cantidad=int(cantidades[i]),
-                        precio_unitario=precios[i],
+                        cantidad=cant,
+                        precio_unitario=precio_usd, 
                         aplica_iva=aplica_iva
                     )
                 
@@ -500,13 +533,21 @@ def generar_factura(request, cotizacion_id):
                 factura = form.save(commit=False)
                 factura.cotizacion = cotizacion
                 factura.usuario = request.user
+                
+                factura.base_imponible = base_imponible_usd * tasa_cambio
+                factura.monto_exento = monto_exento_usd * tasa_cambio
+                factura.impuesto_iva = factura.base_imponible * Decimal('0.16')
+                factura.total = factura.base_imponible + factura.monto_exento + factura.impuesto_iva
+                
+                # Al re-facturar, nos aseguramos de que el estado vuelva a Pendiente de Pago
+                factura.estado_pago = 'PENDIENTE' 
+                factura.porcentaje_pago = 0
                 factura.save()
                 
-                # Usamos 'F' (1 caracter) para respetar el max_length=1 del campo estado
                 cotizacion.estado = 'F'
                 cotizacion.save()
                 
-            messages.success(request, f'¡Factura N° {factura.numero_factura} emitida con éxito!')
+            messages.success(request, f'¡Factura N° {factura.numero_factura} emitida y vehículos rebajados del inventario!')
             return redirect('imprimir_factura', factura_id=factura.id)
     else:
         form = FacturaForm(initial={'fecha_emision': timezone.now().date()})
@@ -934,23 +975,44 @@ def actualizar_pago_factura(request, factura_id):
         if estado in dict(Factura.ESTADOS_PAGO).keys():
             factura.estado_pago = estado
             
-            # Validación segura: Si está vacío, asumimos 0
+            # Validación segura del porcentaje
             if porcentaje_str and str(porcentaje_str).strip():
                 factura.porcentaje_pago = int(porcentaje_str)
             else:
                 factura.porcentaje_pago = 0
             
-            # Lógica automática de estados basada en el porcentaje
+            # Lógica automática de estados
             if factura.porcentaje_pago >= 100:
                 factura.estado_pago = 'PAGADA'
                 factura.porcentaje_pago = 100
-            elif factura.porcentaje_pago == 0 and factura.estado_pago != 'CANCELADA':
+            elif factura.porcentaje_pago == 0 and factura.estado_pago not in ['CANCELADA', 'PENDIENTE']:
                 factura.estado_pago = 'PENDIENTE'
                 
+            # --- LÓGICA DE ANULACIÓN (CANCELADA) ---
+            if factura.estado_pago == 'CANCELADA':
+                factura.porcentaje_pago = 0
+                
+                # 1. Llevar totales a cero para no sumar en Finanzas
+                factura.base_imponible = Decimal('0.00')
+                factura.impuesto_iva = Decimal('0.00')
+                factura.monto_exento = Decimal('0.00')
+                factura.total = Decimal('0.00')
+                
+                # 2. Devolver vehículos a inventario (Disponible)
+                for item in factura.cotizacion.items.all():
+                    if item.vehiculo:
+                        item.vehiculo.estado = 'Disponible'
+                        item.vehiculo.save()
+                
+                # 3. Pasar la cotización a Pendiente (Quitamos estado 'F')
+                cotizacion = factura.cotizacion
+                cotizacion.estado = 'P' # O el estado inicial que uses para pendientes
+                cotizacion.save()
+                
             factura.save()
-            messages.success(request, f'Estatus de pago de la factura {factura.numero_factura} actualizado con éxito.')
+            messages.success(request, f'Estatus de la factura {factura.numero_factura} actualizado con éxito.')
             
-    # Para que funcione tanto si se llama desde Historial como desde Finanzas
+    # Redirección dinámica según dónde estés (Historial o Finanzas)
     referer = request.META.get('HTTP_REFERER')
     if referer and 'historial' in referer:
         return redirect('historial_facturas')
