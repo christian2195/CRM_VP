@@ -140,18 +140,20 @@ class Factura(models.Model):
         help_text="Tasa oficial del BCV al momento de emitir la factura"
     )
     
-    # --- CAMPOS FALTANTES RECUPERADOS ---
+    # =======================================================
+    # AQUÍ ESTÁN LOS CAMPOS RECUPERADOS PARA QUE DJANGO LOS GUARDE
     estado_pago = models.CharField(max_length=20, choices=ESTADOS_PAGO, default='PENDIENTE')
     porcentaje_pago = models.IntegerField(default=0)
+    # =======================================================
     
     # Totales congelados
     monto_exento = models.DecimalField(max_digits=15, decimal_places=2)
     base_imponible = models.DecimalField(max_digits=15, decimal_places=2)
     impuesto_iva = models.DecimalField(max_digits=15, decimal_places=2)
     total = models.DecimalField(max_digits=15, decimal_places=2)
+    
     usuario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Emitido por')
     
-    # --- NUEVO CAMPO PARA COLETILLAS ---
     coletillas = models.TextField(
         blank=True, 
         null=True, 
@@ -169,16 +171,10 @@ class Factura(models.Model):
             self.impuesto_iva = self.cotizacion.impuesto_iva
             self.total = self.cotizacion.total
             
-        # 1. Validar que la anulación sea intocable
-        if self.estado_pago != 'ANULADA':
-            # 2. Lógica automática normal solo actúa si NO está anulada
-            if self.porcentaje_pago == 0:
-                self.estado_pago = 'PENDIENTE'
-            elif self.porcentaje_pago >= 100:
-                self.estado_pago = 'PAGADA'
-                self.porcentaje_pago = 100
-
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Factura {self.numero_factura} (Control: {self.numero_control})"
 
     def __str__(self):
         return f"Factura {self.numero_factura} (Control: {self.numero_control})"
