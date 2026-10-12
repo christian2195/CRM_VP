@@ -82,7 +82,7 @@
                         </thead>
                         <tbody>
                             {% for factura in facturas %}
-                                {% if factura.estado_pago != 'ANULADA' %}
+                                {% if factura.estado_pago != 'ANULADA' and factura.estado_pago != 'CANCELADA' %}
                                 <tr>
                                     <td class="ps-4 fw-bold text-dark">{{ factura.numero_factura }}</td>
                                     <td><small class="text-secondary">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
@@ -133,7 +133,7 @@
                                                             <option value="PENDIENTE" {% if factura.estado_pago == 'PENDIENTE' %}selected{% endif %}>Por Pagar</option>
                                                             <option value="PARCIAL" {% if factura.estado_pago == 'PARCIAL' %}selected{% endif %}>Pago Parcial</option>
                                                             <option value="PAGADA" {% if factura.estado_pago == 'PAGADA' %}selected{% endif %}>Pagada</option>
-                                                            <option value="ANULADA" {% if factura.estado_pago == 'ANULADA' %}selected{% endif %} class="text-danger fw-bold">Anular Factura</option>
+                                                            <option value="ANULADA" {% if factura.estado_pago == 'ANULADA' or factura.estado_pago == 'CANCELADA' %}selected{% endif %} class="text-danger fw-bold">Anular Factura</option>
                                                         </select>
                                                     </div>
                                                     <div class="mb-3">
@@ -186,7 +186,7 @@
                         </thead>
                         <tbody>
                             {% for factura in facturas %}
-                                {% if factura.estado_pago == 'ANULADA' %}
+                                {% if factura.estado_pago == 'ANULADA' or factura.estado_pago == 'CANCELADA' %}
                                 <tr>
                                     <td class="ps-4 fw-bold text-decoration-line-through">{{ factura.numero_factura }}</td>
                                     <td><small>{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
