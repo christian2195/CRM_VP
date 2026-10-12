@@ -942,6 +942,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.showPage()
     p.save()
     return response
+    
 @login_required
 def estado_financiero(request):
     total_facturado = Factura.objects.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
