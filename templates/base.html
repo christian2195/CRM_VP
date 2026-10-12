@@ -14,31 +14,44 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <style>
-        :root {
-            --macos-bg: #f5f5f7;
-            --macos-card-bg: #ffffff;
-            --macos-text-primary: #1d1d1f;
-            --macos-text-secondary: #86868b;
-            --macos-accent: #0071e3;
-            --macos-border: rgba(0, 0, 0, 0.08);
-            --navbar-bg: rgba(255, 255, 255, 0.85);
-        }
+<style>
+    :root {
+        --bs-primary: #273376 !important;        /* Azul Marino Oficial */
+        --bs-primary-rgb: 39, 51, 118 !important;
+        --bs-warning: #FFC907 !important;        /* Amarillo Oro Oficial */
+        --bs-warning-rgb: 255, 207, 7 !important;
+        --bs-danger: #A70336 !important;         /* Rojo Carmesí Oficial */
+        --bs-danger-rgb: 167, 3, 54 !important;
+    }
 
-        [data-theme="dark"] {
-            --macos-bg: #121212;
-            --macos-card-bg: #1e1e20;
-            --macos-text-primary: #f5f5f7;
-            --macos-text-secondary: #a1a1a6;
-            --navbar-bg: rgba(30, 30, 32, 0.85);
-        }
+    /* Sobrescribir colores de botones y acentos principales para que usen la identidad gráfica */
+    .btn-primary {
+        background-color: #273376 !important;
+        border-color: #273376 !important;
+    }
+    .btn-primary:hover {
+        background-color: #1d2558 !important;
+        border-color: #1d2558 !important;
+    }
 
-        body { background-color: var(--macos-bg); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif; color: var(--macos-text-primary); transition: background-color 0.3s ease; }
-        .navbar-macos { background-color: var(--navbar-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--macos-border); }
-        .nav-link { color: var(--macos-text-primary) !important; }
-        .nav-link:hover { color: var(--macos-accent) !important; }
-        .card, .list-group-item, .card-header { background-color: var(--macos-card-bg) !important; border-color: var(--macos-border) !important; }
-    </style>
+    .btn-warning {
+        background-color: #FFC907 !important;
+        border-color: #FFC907 !important;
+        color: #273376 !important; /* Texto oscuro sobre amarillo para legibilidad */
+    }
+    .btn-warning:hover {
+        background-color: #e5b406 !important;
+        border-color: #e5b406 !important;
+    }
+
+    .text-primary {
+        color: #273376 !important;
+    }
+    
+    .bg-primary {
+        background-color: #273376 !important;
+    }
+</style>
 </head>
 <body data-theme="light">
     <!-- Barra de Navegación -->
