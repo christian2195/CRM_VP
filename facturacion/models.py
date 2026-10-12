@@ -51,6 +51,19 @@ class Vehiculo(models.Model):
     refeciv = models.CharField(max_length=100, blank=True, null=True, verbose_name="REFECIV")
     fecha_fin_convenio = models.DateField(blank=True, null=True, verbose_name="Fecha Fin del Convenio")
 
+    # --- MÁQUINA DE ESTADOS DEL INVENTARIO ---
+    ESTADOS_VEHICULO = [
+        ('Disponible', 'Disponible'),
+        ('Apartado', 'Apartado'),
+        ('Vendido', 'Vendido'),
+    ]
+    estado = models.CharField(
+        max_length=20, 
+        choices=ESTADOS_VEHICULO, 
+        default='Disponible',
+        verbose_name='Estatus del Vehículo'
+    )
+
     def __str__(self):
         return f"{self.marca} {self.modelo} - Placa: {self.placa or 'S/P'}"
         
