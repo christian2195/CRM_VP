@@ -799,80 +799,85 @@ def imprimir_cotizacion(request, cotizacion_id):
     
     # --- COLORES INSTITUCIONALES ---
     COLOR_AZUL_MARINO = colors.HexColor('#273376')
+    COLOR_AMARILLO_ORO = colors.HexColor('#FFC907')
+    COLOR_ROJO_CARMESI = colors.HexColor('#A70336')
     COLOR_GRIS_OSCURO = colors.HexColor('#333333')
 
-    # Encabezado Institucional
-    p.setFont("Helvetica-Bold", 10)
+    # --- ENCABEZADO INSTITUCIONAL (CO-BRANDING / 3 BLOQUES SUPERIORES) ---
+    p.setStrokeColor(colors.HexColor('#CCCCCC'))
+    p.setFillColor(colors.HexColor('#F8F9FA'))
+    p.rect(50, 735, 130, 35, fill=1, stroke=1)
+    p.setFont("Helvetica-Bold", 6)
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 750, 'EMPRESA DE DISTRIBUCION DE PRODUCTOS E INSUMOS "VENEZUELA PRODUCTIVA, C.A."')
+    p.drawCentredString(115, 750, "MINISTERIO DEL PODER POPULAR")
+
+    p.rect(190, 735, 180, 35, fill=1, stroke=1)
+    p.setFont("Helvetica-Bold", 7)
+    p.drawCentredString(280, 750, "EMPRESA VENEZUELA PRODUCTIVA, C.A.")
+
+    p.rect(380, 735, 170, 35, fill=1, stroke=1)
+    p.setFont("Helvetica-Bold", 7)
+    p.drawCentredString(465, 752, "EMVEPRO AUTOMOTRIZ")
+    p.setFont("Helvetica", 6)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawCentredString(465, 742, "RIF: G-20010522-4")
+
+    # Fecha segura
+    fecha_str = cotizacion.fecha_creacion.strftime('%d/%m/%Y') if cotizacion.fecha_creacion else 'N/A'
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(550, 715, f"Fecha de Emisión: {fecha_str}")
+
+    # --- TÍTULO Y DATOS DEL DOCUMENTO ---
+    p.setFont("Helvetica-Bold", 11)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(50, 685, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
+
+    # --- DATOS DEL CLIENTE ---
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(50, 665, "DATOS DEL CLIENTE:")
     p.setFont("Helvetica", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(50, 738, "RIF: G-20010522-4")
+    p.drawString(50, 650, f"Razón Social: {str(cliente.nombre_razon_social or '')}")
+    p.drawString(50, 635, f"C.I. / R.I.F.: {str(cliente.tipo_documento or '')}-{str(cliente.identificacion or '')}")
+    p.drawString(320, 650, f"Teléfono: {str(cliente.telefono or 'N/A')}")
     
-    # Datos de Cotización (Derecha)
-    p.setFont("Helvetica-Bold", 9)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawRightString(560, 750, f"PRESUPUESTO: VP-{cotizacion.id}")
-    p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(560, 735, f"FECHA: {cotizacion.fecha_creacion.strftime('%d/%m/%Y')}")
-    
-    # Línea divisoria del membrete
-    p.setStrokeColor(COLOR_AZUL_MARINO)
-    p.setLineWidth(1.5)
-    p.line(50, 725, 560, 725)
-    
-    # Datos del Cliente
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 710, "NOMBRE(S) Y APELLIDO(S) O RAZÓN SOCIAL:")
-    p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(280, 710, f"{cliente.nombre_razon_social}")
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 695, "C.I. / R.I.F.:")
-    p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(120, 695, f"{cliente.tipo_documento}-{cliente.identificacion}")
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 680, "DIRECCIÓN:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(120, 680, f"{cliente.direccion[:95] if cliente.direccion else 'N/A'}")
-    
+    dir_cliente = str(cliente.direccion or 'N/A')
+    p.drawString(320, 635, f"Dirección: {dir_cliente[:45]}")
+
     # --- TABLA DE ÍTEMS ---
-    y_items = 640
+    y_table = 605
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.rect(50, y_items - 2, 510, 18, fill=1, stroke=0)
+    p.rect(50, y_table, 510, 18, fill=1, stroke=0)
     
     p.setFont("Helvetica-Bold", 8)
     p.setFillColor(colors.white)
-    p.drawString(55, y_items + 3, "ITEM")
-    p.drawString(90, y_items + 3, "PRODUCTO / DESCRIPCIÓN")
-    p.drawString(320, y_items + 3, "PRECIO UNIT. ($)")
-    p.drawString(415, y_items + 3, "CANTIDAD")
-    p.drawRightString(555, y_items + 3, "SUBTOTAL ($)")
-    
-    y_items -= 20
+    p.drawString(55, y_table + 5, "ITEM")
+    p.drawString(90, y_table + 5, "PRODUCTO / DESCRIPCIÓN")
+    p.drawString(320, y_table + 5, "PRECIO UNIT. ($)")
+    p.drawString(415, y_table + 5, "CANTIDAD")
+    p.drawRightString(555, y_table + 5, "SUBTOTAL ($)")
+
+    y_items = y_table - 18
     p.setFont("Helvetica", 8.5)
     p.setFillColor(COLOR_GRIS_OSCURO)
     
     cantidad_total_items = 0
     for index, item in enumerate(cotizacion.items.all(), start=1):
-        subtotal_item = item.cantidad * item.precio_unitario
-        cantidad_total_items += item.cantidad
+        cant = item.cantidad or 0
+        precio = item.precio_unitario or Decimal('0.00')
+        subtotal_item = cant * precio
+        cantidad_total_items += cant
+        
+        desc = str(item.descripcion or '')[:45]
         
         p.drawString(55, y_items, str(index))
-        p.drawString(90, y_items, item.descripcion[:45])
-        p.drawString(320, y_items, f"{item.precio_unitario:,.2f}")
-        p.drawString(430, y_items, str(item.cantidad))
+        p.drawString(90, y_items, desc)
+        p.drawString(320, y_items, f"{precio:,.2f}")
+        p.drawString(430, y_items, str(cant))
         p.drawRightString(555, y_items, f"{subtotal_item:,.2f}")
         y_items -= 18
-        
+
     # Línea de separación de totales
     p.setStrokeColor(colors.HexColor('#CCCCCC'))
     p.setLineWidth(1)
@@ -890,23 +895,23 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(320, y_items, "BASE IMPONIBLE:")
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(555, y_items, f"{cotizacion.base_imponible:,.2f}")
+    p.drawRightString(555, y_items, f"{cotizacion.base_imponible or 0:,.2f}")
     
     y_items -= 15
     p.setFont("Helvetica-Bold", 8.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(320, y_items, "IVA (16%):")
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(555, y_items, f"{cotizacion.impuesto_iva:,.2f}")
+    p.drawRightString(555, y_items, f"{cotizacion.impuesto_iva or 0:,.2f}")
     
     y_items -= 15
     p.setFont("Helvetica-Bold", 9)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(320, y_items, "TOTAL GENERAL:")
-    p.drawRightString(555, y_items, f"{cotizacion.total:,.2f}")
-    
-    # --- CONSIDERACIONES Y PIE DE PÁGINA ---
-    y_info = y_items - 35
+    p.drawRightString(555, y_items, f"{cotizacion.total or 0:,.2f}")
+
+    # --- CONDICIONES Y CONSIDERACIONES ---
+    y_info = y_items - 30
     p.setFont("Helvetica-Bold", 7.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(50, y_info, "CONSIDERACIONES PARA LA VENTA:")
@@ -916,14 +921,9 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(50, y_info - 18, "2. PAGO INICIAL del 50% contra la cantidad de vehículos contenidos en cada Bill of Lading (BL).")
     p.drawString(50, y_info - 26, "3. PAGO DEL 50% RESTANTE según la cantidad parcial entregada en cada BL contra DAP.")
     p.drawString(50, y_info - 34, "4. GARANTÍA LIMITADA de un (1) año o 50.000 KM. Gestión ante División Vehicular Emvepro: (0412-6198651).")
-    
-    p.setFont("Helvetica-Bold", 7)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, y_info - 48, "Cuentas Bancarias: BANCO VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
-    p.drawString(50, y_info - 56, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
-    
+
     # --- FIRMAS ---
-    y_firmas = y_info - 100
+    y_firmas = y_info - 85
     p.setFont("Helvetica-Bold", 7)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(80, y_firmas, "REVISADO POR:")
@@ -935,6 +935,19 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.setFont("Helvetica", 7)
     p.drawString(80, y_firmas - 33, "Gerente de Comercio")
     p.drawString(370, y_firmas - 33, "Presidente (E)")
+
+    # --- PIE DE PÁGINA TRICOLOR INSTITUCIONAL ---
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.rect(0, 0, 612, 28, fill=1, stroke=0)
+    p.setFillColor(COLOR_AMARILLO_ORO)
+    p.rect(0, 0, 612, 10, fill=1, stroke=0)
+    p.setFillColor(COLOR_ROJO_CARMESI)
+    p.rect(0, 0, 612, 4, fill=1, stroke=0)
+
+    p.setFont("Helvetica", 6)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawString(50, 42, "Teléfono: +58 212 802 8300 | Correo: contacto@emvepro.gob.ve")
+    p.drawString(50, 34, "Final Av. Panteón, Diagonal al Panteón Nacional, Caracas, Distrito Capital - Venezuela.")
 
     p.showPage()
     p.save()
