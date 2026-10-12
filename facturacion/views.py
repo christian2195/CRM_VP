@@ -17,26 +17,6 @@ from decimal import Decimal
 # --- IMPORTACIÓN DE SEGURIDAD ---
 from django.contrib.auth.decorators import login_required
 
-import openpyxl
-from reportlab.platypus import Table, TableStyle
-from reportlab.lib import colors
-from django.http import HttpResponse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
-from django.db import transaction
-from django.contrib import messages 
-from django.db.models import Q
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from django.db.models import Sum, Prefetch
-from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
-from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
-from decimal import Decimal
-
-# --- IMPORTACIÓN DE SEGURIDAD ---
-from django.contrib.auth.decorators import login_required
-
-@login_required
 @login_required
 def imprimir_factura_institucional(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
@@ -165,7 +145,7 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     
-    # --- ENCABEZADO DERECHA (Bajado 1 cm: de 620 a 590 y 600 a 570) ---
+    # --- ENCABEZADO DERECHA (Bajado 1 cm) ---
     p.setFont("Helvetica-Bold", 9)
     p.drawString(400, 590, "FACTURA N°:")
     p.drawString(400, 570, "FECHA DE EMISIÓN:")
@@ -464,8 +444,8 @@ def generar_factura(request, cotizacion_id):
     # Verificamos si existe una factura vinculada previamente
     factura_previa = getattr(cotizacion, 'factura', None)
     
-    # Permitimos avanzar SOLO si no está facturada, o si la factura que tiene está CANCELADA
-    if cotizacion.estado == 'F' and (not factura_previa or factura_previa.estado_pago != 'CANCELADA'):
+    # Permitimos avanzar SOLO si no está facturada, o si la factura que tiene está ANULADA
+    if cotizacion.estado == 'F' and (not factura_previa or factura_previa.estado_pago != 'ANULADA'):
         messages.warning(request, 'Esta cotización ya ha sido facturada previamente y está activa.')
         return redirect('dashboard')
         
@@ -475,8 +455,8 @@ def generar_factura(request, cotizacion_id):
     )
 
     if request.method == 'POST':
-        # Si la estamos re-facturando sobre una cancelada, usamos "instance" para reciclar el registro
-        if factura_previa and factura_previa.estado_pago == 'CANCELADA':
+        # Si la estamos re-facturando sobre una anulada, usamos "instance" para reciclar el registro
+        if factura_previa and factura_previa.estado_pago == 'ANULADA':
             form = FacturaForm(request.POST, instance=factura_previa)
         else:
             form = FacturaForm(request.POST)
@@ -977,37 +957,41 @@ def actualizar_pago_factura(request, factura_id):
             
             # Validación segura del porcentaje
             if porcentaje_str and str(porcentaje_str).strip():
-                factura.porcentaje_pago = int(porcentaje_str)
+                porcentaje = int(porcentaje_str)
             else:
-                factura.porcentaje_pago = 0
-            
-            # Lógica automática de estados
-            if factura.porcentaje_pago >= 100:
-                factura.estado_pago = 'PAGADA'
-                factura.porcentaje_pago = 100
-            elif factura.porcentaje_pago == 0 and factura.estado_pago not in ['CANCELADA', 'PENDIENTE']:
-                factura.estado_pago = 'PENDIENTE'
+                porcentaje = 0
                 
-            # --- LÓGICA DE ANULACIÓN (CANCELADA) ---
-            if factura.estado_pago == 'CANCELADA':
+            # =========================================================
+            # LA ANULACIÓN TIENE PRIORIDAD ABSOLUTA
+            # =========================================================
+            if factura.estado_pago == 'ANULADA':
                 factura.porcentaje_pago = 0
                 
-                # 1. Llevar totales a cero para no sumar en Finanzas
+                # Llevar totales a cero para no sumar en Finanzas
                 factura.base_imponible = Decimal('0.00')
                 factura.impuesto_iva = Decimal('0.00')
                 factura.monto_exento = Decimal('0.00')
                 factura.total = Decimal('0.00')
                 
-                # 2. Devolver vehículos a inventario (Disponible)
+                # Devolver vehículos a inventario (Disponible)
                 for item in factura.cotizacion.items.all():
                     if item.vehiculo:
                         item.vehiculo.estado = 'Disponible'
                         item.vehiculo.save()
                 
-                # 3. Pasar la cotización a Pendiente (Quitamos estado 'F')
+                # Pasar la cotización a Pendiente 
                 cotizacion = factura.cotizacion
-                cotizacion.estado = 'P' # O el estado inicial que uses para pendientes
+                cotizacion.estado = 'P' 
                 cotizacion.save()
+                
+            else:
+                # SI NO ES ANULACIÓN, ACTÚA LA LÓGICA AUTOMÁTICA
+                factura.porcentaje_pago = porcentaje
+                if factura.porcentaje_pago >= 100:
+                    factura.estado_pago = 'PAGADA'
+                    factura.porcentaje_pago = 100
+                elif factura.porcentaje_pago == 0 and factura.estado_pago != 'PENDIENTE':
+                    factura.estado_pago = 'PENDIENTE'
                 
             factura.save()
             messages.success(request, f'Estatus de la factura {factura.numero_factura} actualizado con éxito.')
@@ -1066,7 +1050,7 @@ def exportar_facturas_excel(request):
         'PENDIENTE': 'Por Pagar',
         'PARCIAL': 'Pago Parcial',
         'PAGADA': 'Pagada',
-        'CANCELADA': 'Cancelada'
+        'ANULADA': 'Anulada' # <--- Corrección a ANULADA
     }
     
     for f in facturas:
