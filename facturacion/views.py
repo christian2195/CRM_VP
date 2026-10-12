@@ -803,50 +803,62 @@ def imprimir_cotizacion(request, cotizacion_id):
     COLOR_ROJO_CARMESI = colors.HexColor('#A70336')
     COLOR_GRIS_OSCURO = colors.HexColor('#333333')
 
+    # --- FRANJA SUPERIOR DECORATIVA ---
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.rect(0, 770, 612, 22, fill=1, stroke=0)
+    p.setFillColor(COLOR_AMARILLO_ORO)
+    p.rect(0, 764, 612, 6, fill=1, stroke=0)
+    p.setFillColor(COLOR_ROJO_CARMESI)
+    p.rect(0, 758, 612, 6, fill=1, stroke=0)
+
     # --- ENCABEZADO INSTITUCIONAL (CO-BRANDING / 3 BLOQUES SUPERIORES) ---
     p.setStrokeColor(colors.HexColor('#CCCCCC'))
-    p.setFillColor(colors.HexColor('#F8F9FA'))
-    p.rect(50, 735, 130, 35, fill=1, stroke=1)
+    p.setFillColor(colors.HexColor('#FFFFFF'))
+    
+    # Bloque 1: Órgano / Ministerio
+    p.rect(50, 710, 130, 35, fill=1, stroke=1)
     p.setFont("Helvetica-Bold", 6)
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawCentredString(115, 750, "MINISTERIO DEL PODER POPULAR")
+    p.drawCentredString(115, 725, "MINISTERIO DEL PODER POPULAR")
 
-    p.rect(190, 735, 180, 35, fill=1, stroke=1)
+    # Bloque 2: Ente Adscrito Principal
+    p.rect(190, 710, 180, 35, fill=1, stroke=1)
     p.setFont("Helvetica-Bold", 7)
-    p.drawCentredString(280, 750, "EMPRESA VENEZUELA PRODUCTIVA, C.A.")
+    p.drawCentredString(280, 725, "EMPRESA VENEZUELA PRODUCTIVA, C.A.")
 
-    p.rect(380, 735, 170, 35, fill=1, stroke=1)
+    # Bloque 3: Empresa Operativa (EMVEPRO)
+    p.rect(380, 710, 170, 35, fill=1, stroke=1)
     p.setFont("Helvetica-Bold", 7)
-    p.drawCentredString(465, 752, "EMVEPRO AUTOMOTRIZ")
+    p.drawCentredString(465, 727, "EMVEPRO AUTOMOTRIZ")
     p.setFont("Helvetica", 6)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawCentredString(465, 742, "RIF: G-20010522-4")
+    p.drawCentredString(465, 717, "RIF: G-20010522-4")
 
-    # Fecha segura
+    # Fecha oficial alineada a la derecha
     fecha_str = cotizacion.fecha_creacion.strftime('%d/%m/%Y') if cotizacion.fecha_creacion else 'N/A'
     p.setFont("Helvetica-Bold", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(550, 715, f"Fecha de Emisión: {fecha_str}")
+    p.drawRightString(550, 690, f"Caracas, {cotizacion.fecha_creacion.strftime('%d de %B de %Y') if cotizacion.fecha_creacion else ''}")
 
     # --- TÍTULO Y DATOS DEL DOCUMENTO ---
     p.setFont("Helvetica-Bold", 11)
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 685, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
+    p.drawString(50, 660, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
 
     # --- DATOS DEL CLIENTE ---
     p.setFont("Helvetica-Bold", 8)
-    p.drawString(50, 665, "DATOS DEL CLIENTE:")
+    p.drawString(50, 640, "DATOS DEL CLIENTE:")
     p.setFont("Helvetica", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(50, 650, f"Razón Social: {str(cliente.nombre_razon_social or '')}")
-    p.drawString(50, 635, f"C.I. / R.I.F.: {str(cliente.tipo_documento or '')}-{str(cliente.identificacion or '')}")
-    p.drawString(320, 650, f"Teléfono: {str(cliente.telefono or 'N/A')}")
+    p.drawString(50, 625, f"Razón Social: {str(cliente.nombre_razon_social or '')}")
+    p.drawString(50, 610, f"C.I. / R.I.F.: {str(cliente.tipo_documento or '')}-{str(cliente.identificacion or '')}")
+    p.drawString(320, 625, f"Teléfono: {str(cliente.telefono or 'N/A')}")
     
     dir_cliente = str(cliente.direccion or 'N/A')
-    p.drawString(320, 635, f"Dirección: {dir_cliente[:45]}")
+    p.drawString(320, 610, f"Dirección: {dir_cliente[:45]}")
 
     # --- TABLA DE ÍTEMS ---
-    y_table = 605
+    y_table = 580
     p.setFillColor(COLOR_AZUL_MARINO)
     p.rect(50, y_table, 510, 18, fill=1, stroke=0)
     
@@ -911,7 +923,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawRightString(555, y_items, f"{cotizacion.total or 0:,.2f}")
 
     # --- CONDICIONES Y CONSIDERACIONES ---
-    y_info = y_items - 30
+    y_info = y_items - 25
     p.setFont("Helvetica-Bold", 7.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(50, y_info, "CONSIDERACIONES PARA LA VENTA:")
@@ -923,7 +935,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(50, y_info - 34, "4. GARANTÍA LIMITADA de un (1) año o 50.000 KM. Gestión ante División Vehicular Emvepro: (0412-6198651).")
 
     # --- FIRMAS ---
-    y_firmas = y_info - 85
+    y_firmas = y_info - 75
     p.setFont("Helvetica-Bold", 7)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(80, y_firmas, "REVISADO POR:")
