@@ -132,12 +132,19 @@
                                 <td class="text-end font-monospace small">Bs. {{ factura.total|floatformat:2 }}</td>
                                 <td class="text-center pe-4">
                                     <div class="btn-group shadow-sm" role="group">
+                                        <!-- Factura Estándar / Forma Libre -->
                                         <a href="{% url 'imprimir_factura' factura.id %}" target="_blank" class="btn btn-sm btn-outline-primary" title="Factura Estándar PDF">
                                             <i class="fa-solid fa-print"></i>
                                         </a>
-                                        <a href="{% url 'imprimir_factura_institucional' factura.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Factura Institucional / Organismos">
+                                        <!-- Factura Institucional con SAP -->
+                                        <a href="{% url 'imprimir_factura_institucional' factura.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Factura Institucional Con SAP">
                                             <i class="fa-solid fa-building-columns"></i>
                                         </a>
+                                        <!-- Factura Institucional Sin SAP -->
+                                        <a href="{% url 'imprimir_factura_institucional_sin_sap' factura.id %}" target="_blank" class="btn btn-sm btn-outline-warning" title="Factura Institucional Sin SAP">
+                                            <i class="fa-solid fa-file-circle-exclamation"></i>
+                                        </a>
+                                        <!-- Certificado de Origen -->
                                         <a href="{% url 'imprimir_certificado' factura.id %}" target="_blank" class="btn btn-sm btn-outline-success" title="Certificado de Origen PDF">
                                             <i class="fa-solid fa-certificate"></i>
                                         </a>
