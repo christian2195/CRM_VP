@@ -812,19 +812,13 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.rect(0, height - 34, width, 6, fill=1, stroke=0)
 
     # --- ENCABEZADO INSTITUCIONAL (ESPACIO PARA LOGOS CO-BRANDING) ---
-    # En lugar de rectángulos azules, dejamos el espacio y ponemos los textos base en azul marino
-    # Puedes reemplazar las líneas drawString por p.drawImage(...) cuando tengas los logos oficiales en PNG.
-    
-    # Bloque 1: Ministerio (Izquierda)
     p.setFont("Helvetica-Bold", 8)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(50, height - 65, "MINISTERIO DEL PODER POPULAR")
     
-    # Bloque 2: Ente Adscrito (Centro-Derecha)
     p.setFont("Helvetica-Bold", 10)
     p.drawRightString(width - 50, height - 65, "EMPRESA VENEZUELA PRODUCTIVA, C.A.")
 
-    # Fecha oficial alineada a la derecha
     fecha_str = cotizacion.fecha_creacion.strftime('%d de %B de %Y') if cotizacion.fecha_creacion else 'N/A'
     p.setFont("Helvetica-Bold", 9)
     p.drawRightString(width - 50, height - 100, f"Caracas, {fecha_str}")
@@ -864,7 +858,7 @@ def imprimir_cotizacion(request, cotizacion_id):
 
     y_pos -= 20
     p.setFont("Helvetica", 9)
-    p.setFillColor(COLOR_AZUL_MARINO) # <--- Todo el texto del cuerpo en azul según referencia
+    p.setFillColor(COLOR_AZUL_MARINO)
     
     cantidad_total_items = 0
     for index, item in enumerate(cotizacion.items.all(), start=1):
@@ -898,7 +892,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     
     y_pos -= 15
     p.drawString(320, y_pos, "IVA (16%):")
-    p.drawRightString(555, y_items, f"{cotizacion.impuesto_iva or 0:,.2f}")
+    p.drawRightString(555, y_pos, f"{cotizacion.impuesto_iva or 0:,.2f}") # <-- CORRECCIÓN APLICADA AQUÍ
     
     y_pos -= 15
     p.drawString(320, y_pos, "TOTAL GENERAL:")
@@ -918,8 +912,8 @@ def imprimir_cotizacion(request, cotizacion_id):
     y_pos -= 90
     p.setStrokeColor(COLOR_AZUL_MARINO)
     p.setLineWidth(0.5)
-    p.line(80, y_pos, 260, y_pos)  # Línea Revisado
-    p.line(350, y_pos, 530, y_pos) # Línea Autorizado
+    p.line(80, y_pos, 260, y_pos)
+    p.line(350, y_pos, 530, y_pos)
 
     p.setFont("Helvetica-Bold", 8)
     p.drawCentredString(170, y_pos + 5, "REVISADO POR:")
