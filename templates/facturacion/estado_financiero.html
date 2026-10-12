@@ -59,7 +59,7 @@
 <div class="tab-content" id="financieroTabsContent">
     
     <!-- ==========================================
-         PESTAÑA 1: FACTURAS ACTIVAS (Tu tabla original)
+         PESTAÑA 1: FACTURAS ACTIVAS 
          ========================================== -->
     <div class="tab-pane fade show active" id="activas" role="tabpanel" aria-labelledby="activas-tab">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
@@ -82,7 +82,7 @@
                         </thead>
                         <tbody>
                             {% for factura in facturas %}
-                                {% if factura.estado_pago != 'CANCELADA' %}
+                                {% if factura.estado_pago != 'ANULADA' %}
                                 <tr>
                                     <td class="ps-4 fw-bold text-dark">{{ factura.numero_factura }}</td>
                                     <td><small class="text-secondary">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
@@ -116,7 +116,7 @@
                                     </td>
                                 </tr>
 
-                                <!-- Modal para Actualizar Pago (Mantenido intacto) -->
+                                <!-- Modal para Actualizar Pago -->
                                 <div class="modal fade" id="modalPago{{ factura.id }}" tabindex="-1" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
                                         <div class="modal-content border-0 shadow-lg rounded-4">
@@ -133,7 +133,7 @@
                                                             <option value="PENDIENTE" {% if factura.estado_pago == 'PENDIENTE' %}selected{% endif %}>Por Pagar</option>
                                                             <option value="PARCIAL" {% if factura.estado_pago == 'PARCIAL' %}selected{% endif %}>Pago Parcial</option>
                                                             <option value="PAGADA" {% if factura.estado_pago == 'PAGADA' %}selected{% endif %}>Pagada</option>
-                                                            <option value="CANCELADA" {% if factura.estado_pago == 'CANCELADA' %}selected{% endif %}>Cancelada</option>
+                                                            <option value="ANULADA" {% if factura.estado_pago == 'ANULADA' %}selected{% endif %} class="text-danger fw-bold">Anular Factura</option>
                                                         </select>
                                                     </div>
                                                     <div class="mb-3">
@@ -142,7 +142,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="modal-footer border-0 pt-0">
-                                                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
                                                     <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar Cambios</button>
                                                 </div>
                                             </form>
@@ -166,7 +166,7 @@
     </div>
 
     <!-- ==========================================
-         PESTAÑA 2: FACTURAS ANULADAS (Nuevo)
+         PESTAÑA 2: FACTURAS ANULADAS 
          ========================================== -->
     <div class="tab-pane fade" id="anuladas" role="tabpanel" aria-labelledby="anuladas-tab">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-light">
@@ -186,7 +186,7 @@
                         </thead>
                         <tbody>
                             {% for factura in facturas %}
-                                {% if factura.estado_pago == 'CANCELADA' %}
+                                {% if factura.estado_pago == 'ANULADA' %}
                                 <tr>
                                     <td class="ps-4 fw-bold text-decoration-line-through">{{ factura.numero_factura }}</td>
                                     <td><small>{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
@@ -213,18 +213,15 @@
     </div>
 </div>
 
-<!-- Script para estilos de las pestañas -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         var tabs = document.querySelectorAll('#financieroTabs .nav-link');
         tabs.forEach(function(tab) {
             tab.addEventListener('click', function() {
-                // Reiniciar estilos de todas las pestañas
                 tabs.forEach(t => {
                     t.classList.remove('border-bottom', 'border-primary', 'border-3', 'text-dark');
                     t.classList.add('border-0', 'text-muted');
                 });
-                // Aplicar estilo resaltado a la pestaña activa
                 this.classList.remove('border-0', 'text-muted');
                 this.classList.add('border-bottom', 'border-primary', 'border-3', 'text-dark');
             });
