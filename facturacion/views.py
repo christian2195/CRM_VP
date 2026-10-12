@@ -929,22 +929,31 @@ def actualizar_pago_factura(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     if request.method == 'POST':
         estado = request.POST.get('estado_pago')
-        porcentaje = request.POST.get('porcentaje_pago')
+        porcentaje_str = request.POST.get('porcentaje_pago')
         
         if estado in dict(Factura.ESTADOS_PAGO).keys():
             factura.estado_pago = estado
-            factura.porcentaje_pago = int(porcentaje)
             
-            # Si el porcentaje es 100, aseguramos que el estado cambie a PAGADA
+            # Validación segura: Si está vacío, asumimos 0
+            if porcentaje_str and str(porcentaje_str).strip():
+                factura.porcentaje_pago = int(porcentaje_str)
+            else:
+                factura.porcentaje_pago = 0
+            
+            # Lógica automática de estados basada en el porcentaje
             if factura.porcentaje_pago >= 100:
                 factura.estado_pago = 'PAGADA'
                 factura.porcentaje_pago = 100
-            elif factura.porcentaje_pago == 0:
+            elif factura.porcentaje_pago == 0 and factura.estado_pago != 'CANCELADA':
                 factura.estado_pago = 'PENDIENTE'
                 
             factura.save()
             messages.success(request, f'Estatus de pago de la factura {factura.numero_factura} actualizado con éxito.')
             
+    # Para que funcione tanto si se llama desde Historial como desde Finanzas
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'historial' in referer:
+        return redirect('historial_facturas')
     return redirect('estado_financiero')
 
 @login_required
