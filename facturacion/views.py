@@ -312,7 +312,6 @@ def imprimir_factura_forma_libre(request, factura_id):
         p.drawString(40, y_veh, "DESCRIPCIÓN DEL VEHÍCULO")
         y_veh -= 14
         
-        # Estructura de dos columnas completa y alineada
         left_labels = [
             ("MARCA:", vehiculo_principal.marca),
             ("MODELO:", vehiculo_principal.modelo),
@@ -387,6 +386,7 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.showPage()
     p.save()
     return response
+
 @login_required
 def dashboard(request):
     facturas_recientes = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')[:5]
@@ -934,19 +934,27 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(50, y_info - 26, "3. PAGO DEL 50% RESTANTE según la cantidad parcial entregada en cada BL contra DAP.")
     p.drawString(50, y_info - 34, "4. GARANTÍA LIMITADA de un (1) año o 50.000 KM. Gestión ante División Vehicular Emvepro: (0412-6198651).")
 
-    # --- FIRMAS ---
+    # --- FIRMAS DIGITALES INSTITUCIONALES ---
     y_firmas = y_info - 75
+    
+    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setLineWidth(0.5)
+    p.line(60, y_firmas - 15, 220, y_firmas - 15)
+    p.line(340, y_firmas - 15, 520, y_firmas - 15)
+
     p.setFont("Helvetica-Bold", 7)
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(80, y_firmas, "REVISADO POR:")
-    p.drawString(360, y_firmas, "AUTORIZADO POR:")
+    p.drawCentredString(140, y_firmas, "REVISADO POR:")
+    p.drawCentredString(430, y_firmas, "AUTORIZADO POR:")
     
+    p.setFont("Helvetica-Bold", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(70, y_firmas - 25, "Mercedes Varela")
-    p.drawString(340, y_firmas - 25, "Jose Holberg Zambrano Gonzalez")
+    p.drawCentredString(140, y_firmas - 25, "Mercedes Varela")
+    p.drawCentredString(430, y_firmas - 25, "Jose Holberg Zambrano Gonzalez")
+    
     p.setFont("Helvetica", 7)
-    p.drawString(80, y_firmas - 33, "Gerente de Comercio")
-    p.drawString(370, y_firmas - 33, "Presidente (E)")
+    p.drawCentredString(140, y_firmas - 33, "Gerente de Comercio")
+    p.drawCentredString(430, y_firmas - 33, "Presidente (E)")
 
     # --- PIE DE PÁGINA TRICOLOR INSTITUCIONAL ---
     p.setFillColor(COLOR_AZUL_MARINO)
@@ -964,181 +972,15 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.showPage()
     p.save()
     return response
-    
+
 @login_required
-def imprimir_cotizacion(request, cotizacion_id):
-    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
-    cliente = cotizacion.cliente
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="Presupuesto_VP-{cotizacion.id}.pdf"'
-
-    p = canvas.Canvas(response, pagesize=letter)
-    
-    # --- COLORES INSTITUCIONALES ---
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_AMARILLO_ORO = colors.HexColor('#FFC907')
-    COLOR_ROJO_CARMESI = colors.HexColor('#A70336')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
-
-    # --- ENCABEZADO INSTITUCIONAL (CO-BRANDING / 3 BLOQUES SUPERIORES) ---
-    # Bloque 1: Logo Ministerio / Órgano Rector
-    p.setStrokeColor(colors.HexColor('#CCCCCC'))
-    p.setFillColor(colors.HexColor('#F8F9FA'))
-    p.rect(50, 735, 130, 35, fill=1, stroke=1)
-    p.setFont("Helvetica-Bold", 6)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawCentredString(115, 750, "MINISTERIO DEL PODER POPULAR")
-
-    # Bloque 2: Nombre del Ente
-    p.rect(190, 735, 180, 35, fill=1, stroke=1)
-    p.setFont("Helvetica-Bold", 7)
-    p.drawCentredString(280, 750, "EMPRESA VENEZUELA PRODUCTIVA, C.A.")
-
-    # Bloque 3: Logo del Ente
-    p.rect(380, 735, 170, 35, fill=1, stroke=1)
-    p.setFont("Helvetica-Bold", 7)
-    p.drawCentredString(465, 752, "EMVEPRO AUTOMOTRIZ")
-    p.setFont("Helvetica", 6)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawCentredString(465, 742, "RIF: G-20010522-4")
-
-    # Fecha oficial alineada a la derecha
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(550, 715, f"Caracas, {cotizacion.fecha_creacion.strftime('%d de %B de %Y')}")
-
-    # --- TÍTULO Y DATOS DEL DOCUMENTO ---
-    p.setFont("Helvetica-Bold", 11)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, 685, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
-
-    # --- DATOS DEL CLIENTE ---
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(50, 665, "DATOS DEL CLIENTE:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(50, 650, f"Razón Social: {cliente.nombre_razon_social}")
-    p.drawString(50, 635, f"C.I. / R.I.F.: {cliente.tipo_documento}-{cliente.identificacion}")
-    p.drawString(320, 650, f"Teléfono: {cliente.telefono or 'N/A'}")
-    p.drawString(320, 635, f"Dirección: {cliente.direccion[:45] if cliente.direccion else 'N/A'}")
-
-    # --- TABLA DE ÍTEMS ---
-    y_table = 605
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.rect(50, y_table, 510, 18, fill=1, stroke=0)
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(colors.white)
-    p.drawString(55, y_table + 5, "ITEM")
-    p.drawString(90, y_table + 5, "PRODUCTO / DESCRIPCIÓN")
-    p.drawString(320, y_table + 5, "PRECIO UNIT. ($)")
-    p.drawString(415, y_table + 5, "CANTIDAD")
-    p.drawRightString(555, y_table + 5, "SUBTOTAL ($)")
-
-    y_items = y_table - 18
-    p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    
-    cantidad_total_items = 0
-    for index, item in enumerate(cotizacion.items.all(), start=1):
-        subtotal_item = item.cantidad * item.precio_unitario
-        cantidad_total_items += item.cantidad
-        
-        p.drawString(55, y_items, str(index))
-        p.drawString(90, y_items, item.descripcion[:45])
-        p.drawString(320, y_items, f"{item.precio_unitario:,.2f}")
-        p.drawString(430, y_items, str(item.cantidad))
-        p.drawRightString(555, y_items, f"{subtotal_item:,.2f}")
-        y_items -= 18
-
-    # Línea de separación de totales
-    p.setStrokeColor(colors.HexColor('#CCCCCC'))
-    p.setLineWidth(1)
-    p.line(320, y_items + 10, 560, y_items + 10)
-
-    y_items -= 5
-    p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(320, y_items, "CANTIDAD TOTAL:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(555, y_items, str(cantidad_total_items))
-    
-    y_items -= 15
-    p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(320, y_items, "BASE IMPONIBLE:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(555, y_items, f"{cotizacion.base_imponible:,.2f}")
-    
-    y_items -= 15
-    p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(320, y_items, "IVA (16%):")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(555, y_items, f"{cotizacion.impuesto_iva:,.2f}")
-    
-    y_items -= 15
-    p.setFont("Helvetica-Bold", 9)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(320, y_items, "TOTAL GENERAL:")
-    p.drawRightString(555, y_items, f"{cotizacion.total:,.2f}")
-
-    # --- CONDICIONES Y CONSIDERACIONES ---
-    y_info = y_items - 30
-    p.setFont("Helvetica-Bold", 7.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(50, y_info, "CONSIDERACIONES PARA LA VENTA:")
-    p.setFont("Helvetica", 6.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(50, y_info - 10, "1. PRECIOS EXPRESADOS EN INCOTERM DAP (DELIVERY AT PLACE), incluye transporte y despacho hasta puerto destino.")
-    p.drawString(50, y_info - 18, "2. PAGO INICIAL del 50% contra la cantidad de vehículos contenidos en cada Bill of Lading (BL).")
-    p.drawString(50, y_info - 26, "3. PAGO DEL 50% RESTANTE según la cantidad parcial entregada en cada BL contra DAP.")
-    p.drawString(50, y_info - 34, "4. GARANTÍA LIMITADA de un (1) año o 50.000 KM. Gestión ante División Vehicular Emvepro: (0412-6198651).")
-
-    # --- FIRMAS ---
-    y_firmas = y_info - 85
-    p.setFont("Helvetica-Bold", 7)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(80, y_firmas, "REVISADO POR:")
-    p.drawString(360, y_firmas, "AUTORIZADO POR:")
-    
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(70, y_firmas - 25, "Mercedes Varela")
-    p.drawString(340, y_firmas - 25, "Jose Holberg Zambrano Gonzalez")
-    p.setFont("Helvetica", 7)
-    p.drawString(80, y_firmas - 33, "Gerente de Comercio")
-    p.drawString(370, y_firmas - 33, "Presidente (E)")
-
-    # --- PIE DE PÁGINA TRICOLOR INSTITUCIONAL ---
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.rect(0, 0, 612, 28, fill=1, stroke=0)
-    p.setFillColor(COLOR_AMARILLO_ORO)
-    p.rect(0, 0, 612, 10, fill=1, stroke=0)
-    p.setFillColor(COLOR_ROJO_CARMESI)
-    p.rect(0, 0, 612, 4, fill=1, stroke=0)
-
-    # Textos de contacto sobre el pie de página
-    p.setFont("Helvetica", 6)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(50, 42, "Teléfono: +58 212 802 8300 | Correo: contacto@emvepro.gob.ve")
-    p.drawString(50, 34, "Final Av. Panteón, Diagonal al Panteón Nacional, Caracas, Distrito Capital - Venezuela.")
-
-    p.showPage()
-    p.save()
-    return response
-    
 def estado_financiero(request):
-    # Consolidado general de facturas emitidas
     total_facturado = Factura.objects.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
     total_base = Factura.objects.aggregate(Sum('base_imponible'))['base_imponible__sum'] or Decimal('0.00')
     total_iva = Factura.objects.aggregate(Sum('impuesto_iva'))['impuesto_iva__sum'] or Decimal('0.00')
     total_exento = Factura.objects.aggregate(Sum('monto_exento'))['monto_exento__sum'] or Decimal('0.00')
     
-    # Listado detallado de facturas para la auditoría financiera
     facturas = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')
-    
-    # Cotizaciones pendientes de cobro / facturación
     cotizaciones_pendientes = Cotizacion.objects.exclude(estado__in=['F', 'A'])
     monto_pendiente = cotizaciones_pendientes.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
 
@@ -1163,37 +1005,27 @@ def actualizar_pago_factura(request, factura_id):
         if estado in dict(Factura.ESTADOS_PAGO).keys():
             factura.estado_pago = estado
             
-            # Validación segura del porcentaje
             if porcentaje_str and str(porcentaje_str).strip():
                 porcentaje = int(porcentaje_str)
             else:
                 porcentaje = 0
                 
-            # =========================================================
-            # LA ANULACIÓN TIENE PRIORIDAD ABSOLUTA
-            # =========================================================
             if factura.estado_pago == 'ANULADA':
                 factura.porcentaje_pago = 0
-                
-                # Llevar totales a cero para no sumar en Finanzas
                 factura.base_imponible = Decimal('0.00')
                 factura.impuesto_iva = Decimal('0.00')
                 factura.monto_exento = Decimal('0.00')
                 factura.total = Decimal('0.00')
                 
-                # Devolver vehículos a inventario (Disponible)
                 for item in factura.cotizacion.items.all():
                     if item.vehiculo:
                         item.vehiculo.estado = 'Disponible'
                         item.vehiculo.save()
                 
-                # Pasar la cotización a Pendiente 
                 cotizacion = factura.cotizacion
                 cotizacion.estado = 'P' 
                 cotizacion.save()
-                
             else:
-                # SI NO ES ANULACIÓN, ACTÚA LA LÓGICA AUTOMÁTICA
                 factura.porcentaje_pago = porcentaje
                 if factura.porcentaje_pago >= 100:
                     factura.estado_pago = 'PAGADA'
@@ -1204,7 +1036,6 @@ def actualizar_pago_factura(request, factura_id):
             factura.save()
             messages.success(request, f'Estatus de la factura {factura.numero_factura} actualizado con éxito.')
             
-    # Redirección dinámica según dónde estés (Historial o Finanzas)
     referer = request.META.get('HTTP_REFERER')
     if referer and 'historial' in referer:
         return redirect('historial_facturas')
@@ -1235,7 +1066,6 @@ def exportar_facturas_excel(request):
     ws = wb.active
     ws.title = "Consolidado Serie A"
 
-    # 1. Agregamos 'Emitido Por' al final de las cabeceras
     headers = [
         'Fecha Factura', 'Nro Factura', 'Nro Control', 'Estatus de Pago', 'Cliente', 
         'Cedula/Rif', 'Dirección', 'Telefonos', 'Descripción', 
@@ -1244,21 +1074,19 @@ def exportar_facturas_excel(request):
         'Serial Motor', 'Serial Carrocería NIV', 'Emitido Por'
     ]
     
-    # Estilo básico para la cabecera
     ws.append(headers)
     for col in range(1, len(headers) + 1):
         cell = ws.cell(row=1, column=col)
         cell.font = openpyxl.styles.Font(bold=True)
         cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
 
-    # 2. Agregamos 'usuario' a select_related para optimizar la consulta
     facturas = Factura.objects.select_related('cotizacion__cliente', 'usuario').prefetch_related('cotizacion__items__vehiculo').order_by('numero_factura')
     
     diccionario_estados = {
         'PENDIENTE': 'Por Pagar',
         'PARCIAL': 'Pago Parcial',
         'PAGADA': 'Pagada',
-        'ANULADA': 'Anulada' # <--- Corrección a ANULADA
+        'ANULADA': 'Anulada'
     }
     
     for f in facturas:
@@ -1267,8 +1095,6 @@ def exportar_facturas_excel(request):
         v = item.vehiculo if item else None
         
         estatus_texto = diccionario_estados.get(getattr(f, 'estado_pago', 'PENDIENTE'), 'Por Pagar')
-        
-        # 3. Extraemos el nombre del usuario, si existe
         nombre_usuario = f.usuario.username.title() if f.usuario else 'N/A'
         
         ws.append([
@@ -1279,7 +1105,7 @@ def exportar_facturas_excel(request):
             v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
             v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
             v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
-            nombre_usuario # <--- Añadimos el dato al Excel
+            nombre_usuario
         ])
 
     wb.save(response)
@@ -1288,7 +1114,6 @@ def exportar_facturas_excel(request):
 @login_required
 def lista_cotizaciones(request):
     query = request.GET.get('q')
-    # Traemos todas las cotizaciones ordenadas de la más reciente a la más antigua
     cotizaciones = Cotizacion.objects.select_related('cliente', 'usuario').all().order_by('-fecha_creacion', '-id')
     
     if query:
@@ -1318,7 +1143,6 @@ def imprimir_certificado_origen(request, factura_id):
     p = canvas.Canvas(response, pagesize=letter)
     p.setFont("Helvetica", 8)
 
-    # --- ENCABEZADO Y FECHA ---
     p.drawCentredString(306, 750, 'EMPRESA DE DISTRIBUCION DE PRODUCTOS E INSUMOS "VENEZUELA PRODUCTIVA, C.A."')
     p.drawString(140, 715, factura.fecha_emision.strftime('%d/%m/%Y'))
 
@@ -1356,7 +1180,6 @@ def imprimir_certificado_origen(request, factura_id):
         
         p.drawString(380, 435, str(vehiculo.fecha_fin_convenio.strftime('%d/%m/%Y') if vehiculo.fecha_fin_convenio else '31/12/2026'))
 
-    # --- BLOQUE DE EMPRESA Y COMPRADOR ---
     p.drawString(140, 355, "VENEZUELA PRODUCTIVA C.A.")
     p.drawString(450, 355, "G-20010522-4")
     
