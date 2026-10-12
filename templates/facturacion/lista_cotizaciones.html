@@ -70,14 +70,22 @@
                         <td class="text-end font-monospace fw-semibold">Bs. {{ cot.total|floatformat:2 }}</td>
                         <td class="text-center pe-4">
                             <div class="btn-group shadow-sm rounded-pill bg-light p-1" role="group">
+                                <!-- Botón PDF -->
                                 <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="PDF Cotización">
                                     <i class="fa-solid fa-file-pdf text-danger"></i>
                                 </a>
+                                
+                                <!-- Botón Generar Factura (Solo si no está facturada) -->
                                 {% if cot.estado != 'F' %}
                                 <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="Generar Factura">
                                     <i class="fa-solid fa-file-invoice text-warning"></i>
                                 </a>
                                 {% endif %}
+
+                                <!-- Botón Eliminar / Anular Cotización -->
+                                <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="Eliminar Cotización" onclick="return confirm('¿Estás seguro de que deseas eliminar la cotización VP-{{ cot.id }}? Si tenía vehículos apartados, volverán a estar disponibles.');">
+                                    <i class="fa-solid fa-trash-can text-danger"></i>
+                                </a>
                             </div>
                         </td>
                     </tr>
