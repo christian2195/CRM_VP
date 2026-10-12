@@ -311,24 +311,47 @@ def imprimir_factura_forma_libre(request, factura_id):
         p.setFont("Helvetica-Bold", 8)
         p.drawString(40, y_veh, "DESCRIPCIÓN DEL VEHÍCULO")
         y_veh -= 14
-        left_labels = [("MARCA:", vehiculo_principal.marca), ("MODELO:", vehiculo_principal.modelo), ("COLOR:", vehiculo_principal.color), ("PLACA:", vehiculo_principal.placa)]
-        right_labels = [("SERIAL MOTOR:", vehiculo_principal.serial_motor), ("SERIAL CARROCERIA:", vehiculo_principal.serial_carroceria_niv)]
+        
+        # Estructura de dos columnas completa y alineada
+        left_labels = [
+            ("MARCA:", vehiculo_principal.marca),
+            ("MODELO:", vehiculo_principal.modelo),
+            ("COLOR:", vehiculo_principal.color),
+            ("PLACA:", vehiculo_principal.placa or 'S/P'),
+            ("AÑO:", vehiculo_principal.anio),
+            ("CLASE:", vehiculo_principal.clase),
+            ("TIPO:", vehiculo_principal.tipo),
+            ("USO:", vehiculo_principal.uso),
+            ("TRANSMISIÓN:", vehiculo_principal.transmision)
+        ]
+        right_labels = [
+            ("TIPO DE COMBUSTIBLE:", vehiculo_principal.tipo_combustible),
+            ("N° DE PUESTO:", vehiculo_principal.num_puestos),
+            ("N° EJES:", vehiculo_principal.num_ejes),
+            ("PESO (TARA):", vehiculo_principal.peso_tara),
+            ("CAPACIDAD DE CARGA (KG.):", vehiculo_principal.capacidad_carga),
+            ("SERIAL DE MOTOR:", vehiculo_principal.serial_motor),
+            ("SERIAL DE CARROCERIA:", vehiculo_principal.serial_carroceria_niv),
+            ("SERIAL NIV:", vehiculo_principal.serial_carroceria_niv)
+        ]
         
         y_curr = y_veh
         for label, val in left_labels:
-            p.setFont("Helvetica-Bold", 8)
+            p.setFont("Helvetica-Bold", 7.5)
             p.drawString(40, y_curr, label)
-            p.setFont("Helvetica", 8)
-            p.drawString(150, y_curr, str(val))
-            y_curr -= 13
+            p.setFont("Helvetica", 7.5)
+            p.drawString(150, y_curr, str(val or ''))
+            y_curr -= 11
+            
         y_curr_r = y_veh
         for label, val in right_labels:
-            p.setFont("Helvetica-Bold", 8)
-            p.drawString(280, y_curr_r, label)
-            p.setFont("Helvetica", 8)
-            p.drawString(410, y_curr_r, str(val))
-            y_curr_r -= 13
-        y_totales_start = min(y_curr, y_curr_r) - 20
+            p.setFont("Helvetica-Bold", 7.5)
+            p.drawString(300, y_curr_r, label)
+            p.setFont("Helvetica", 7.5)
+            p.drawString(430, y_curr_r, str(val or ''))
+            y_curr_r -= 11
+            
+        y_totales_start = min(y_curr, y_curr_r) - 15
     else:
         y_totales_start = y_veh - 10
 
@@ -364,7 +387,6 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.showPage()
     p.save()
     return response
-
 @login_required
 def dashboard(request):
     facturas_recientes = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')[:5]
