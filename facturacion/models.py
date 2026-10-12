@@ -112,7 +112,7 @@ class Factura(models.Model):
         ('PENDIENTE', 'Por Pagar'),
         ('PARCIAL', 'Pago Parcial'),
         ('PAGADA', 'Pagada'),
-        ('CANCELADA', 'Cancelada'),
+        ('ANULADA', 'Anulada'),
     ]
     
     cotizacion = models.OneToOneField(Cotizacion, on_delete=models.RESTRICT, related_name='factura')
