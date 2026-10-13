@@ -9,11 +9,7 @@ from django.db import transaction
 from django.contrib import messages 
 from django.db.models import Q, Sum, Prefetch
 from django.contrib.auth.decorators import login_required
-def fmt_moneda(valor):
-    """Formatea números al estándar venezolano: 10.045.812,00"""
-    if valor is None or valor == '':
-        valor = Decimal('0.00')
-    return f"{Decimal(str(valor)):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -23,6 +19,23 @@ from reportlab.graphics.shapes import Drawing
 
 from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
+
+
+def fmt_moneda(valor):
+    """Formatea números al estándar venezolano: 10.045.812,00"""
+    if valor is None or valor == '':
+        valor = Decimal('0.00')
+    return f"{Decimal(str(valor)):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
+
+
+def obtener_factor_bs(factura, cotizacion):
+    """Calcula el factor de tasa de cambio si los ítems están en USD y la factura en Bs."""
+    suma_items = sum((item.cantidad * item.precio_unitario) for item in cotizacion.items.all())
+    subtotal_factura = (factura.base_imponible or Decimal('0.00')) + (factura.monto_exento or Decimal('0.00'))
+    if suma_items > 0 and subtotal_factura > 0:
+        return subtotal_factura / suma_items
+    return Decimal('1.00')
+
 
 @login_required
 def imprimir_factura_institucional(request, factura_id):
@@ -81,9 +94,10 @@ def imprimir_factura_institucional(request, factura_id):
     y_items = y_line2 - 12
     p.setFont("Helvetica", 6.5)
     
+    factor_bs = obtener_factor_bs(factura, cotizacion)
     for index, item in enumerate(cotizacion.items.all(), start=1):
         v = item.vehiculo
-        subtotal_item = item.cantidad * item.precio_unitario
+        subtotal_item = (item.cantidad * item.precio_unitario) * factor_bs
         p.drawString(44, y_items, str(index))
         p.drawString(62, y_items, str(item.cantidad))
         p.drawString(85, y_items, "1124626")
@@ -94,7 +108,7 @@ def imprimir_factura_institucional(request, factura_id):
         p.drawString(280, y_items, str(v.serial_motor if v else ''))
         p.drawString(365, y_items, str(v.serial_carroceria_niv if v else ''))
         p.drawString(470, y_items, str(v.transmision if v else 'MANUAL')[:7])
-        p.drawRightString(555, y_items, f"{subtotal_item:,.2f}")
+        p.drawRightString(555, y_items, fmt_moneda(subtotal_item))
         y_items -= 15
 
     p.setLineWidth(1)
@@ -124,22 +138,23 @@ def imprimir_factura_institucional(request, factura_id):
             
     p.setFont("Helvetica-Bold", 8)
     p.drawString(330, y_tot, "Base Imponible Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.base_imponible))
     y_tot -= 14
     p.drawString(330, y_tot, "Exento Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.monto_exento))
     y_tot -= 14
     p.drawString(330, y_tot, "Iva (16%) Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.impuesto_iva))
     p.line(320, y_tot - 4, 560, y_tot - 4)
     y_tot -= 14
     p.setFont("Helvetica-Bold", 8.5)
     p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.total))
 
     p.showPage()
     p.save()
     return response
+
 
 @login_required
 def imprimir_factura_institucional_sin_sap(request, factura_id):
@@ -196,9 +211,10 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
     y_items = y_line2 - 12
     p.setFont("Helvetica", 6.5)
     
+    factor_bs = obtener_factor_bs(factura, cotizacion)
     for index, item in enumerate(cotizacion.items.all(), start=1):
         v = item.vehiculo
-        subtotal_item = item.cantidad * item.precio_unitario
+        subtotal_item = (item.cantidad * item.precio_unitario) * factor_bs
         p.drawString(44, y_items, str(index))
         p.drawString(65, y_items, str(item.cantidad))
         p.drawString(110, y_items, f"{v.marca if v else ''} {v.modelo if v else item.descripcion[:10]}"[:20])
@@ -207,7 +223,7 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
         p.drawString(260, y_items, str(v.color if v else ''))
         p.drawString(300, y_items, str(v.serial_motor if v else ''))
         p.drawString(400, y_items, str(v.serial_carroceria_niv if v else ''))
-        p.drawRightString(540, y_items, f"{subtotal_item:,.2f}")
+        p.drawRightString(540, y_items, fmt_moneda(subtotal_item))
         y_items -= 15
 
     p.setLineWidth(1)
@@ -237,22 +253,23 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
             
     p.setFont("Helvetica-Bold", 8)
     p.drawString(330, y_tot, "Base Imponible Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.base_imponible))
     y_tot -= 14
     p.drawString(330, y_tot, "Exento Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.monto_exento))
     y_tot -= 14
     p.drawString(330, y_tot, "Iva (16%) Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.impuesto_iva))
     p.line(320, y_tot - 4, 560, y_tot - 4)
     y_tot -= 14
     p.setFont("Helvetica-Bold", 8.5)
     p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
-    p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.total))
 
     p.showPage()
     p.save()
     return response
+
 
 @login_required
 def imprimir_factura_forma_libre(request, factura_id):
@@ -297,17 +314,19 @@ def imprimir_factura_forma_libre(request, factura_id):
     y_items = y_line2 - 14
     p.setFont("Helvetica", 8)
     vehiculo_principal = None
+    factor_bs = obtener_factor_bs(factura, cotizacion)
+    
     for item in cotizacion.items.all():
         if item.vehiculo and not vehiculo_principal:
             vehiculo_principal = item.vehiculo
         tipo_iva = "ALIC. GENER." if item.aplica_iva else "EXENTO"
-        alic_porcentaje = "16,00%" if item.aplica_iva else "0.00%"
-        subtotal_item = item.cantidad * item.precio_unitario
+        alic_porcentaje = "16,00%" if item.aplica_iva else "0,00%"
+        subtotal_item = (item.cantidad * item.precio_unitario) * factor_bs
         p.drawString(75, y_items, str(item.cantidad))
         p.drawString(130, y_items, item.descripcion[:35])
         p.drawString(280, y_items, tipo_iva)
         p.drawString(390, y_items, alic_porcentaje)
-        p.drawRightString(550, y_items, f"{subtotal_item:,.2f}")
+        p.drawRightString(550, y_items, fmt_moneda(subtotal_item))
         y_items -= 16
 
     p.setLineWidth(1)
@@ -333,12 +352,13 @@ def imprimir_factura_forma_libre(request, factura_id):
         right_labels = [
             ("TIPO DE COMBUSTIBLE:", vehiculo_principal.tipo_combustible),
             ("N° DE PUESTO:", vehiculo_principal.num_puestos),
-            ("N° EJES:", vehiculo_principal.num_ejes),
+            ("N° EJES :", vehiculo_principal.num_ejes),
             ("PESO (TARA):", vehiculo_principal.peso_tara),
             ("CAPACIDAD DE CARGA (KG.):", vehiculo_principal.capacidad_carga),
             ("SERIAL DE MOTOR:", vehiculo_principal.serial_motor),
             ("SERIAL DE CARROCERIA:", vehiculo_principal.serial_carroceria_niv),
-            ("SERIAL NIV:", vehiculo_principal.serial_carroceria_niv)
+            ("SERIAL NIV:", vehiculo_principal.serial_carroceria_niv),
+            ("SERIE/VERSIÓN", getattr(vehiculo_principal, 'serie_version', '') or '')
         ]
         
         y_curr = y_veh
@@ -377,22 +397,23 @@ def imprimir_factura_forma_libre(request, factura_id):
             
     p.setFont("Helvetica-Bold", 8)
     p.drawRightString(440, y_tot, "BASE IMPONIBLE GRAVABLE")
-    p.drawRightString(550, y_tot, f"{factura.base_imponible:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.base_imponible))
     y_tot -= 14
     p.drawRightString(440, y_tot, "I.V.A. (16%)")
-    p.drawRightString(550, y_tot, f"{factura.impuesto_iva:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.impuesto_iva))
     y_tot -= 14
     p.drawRightString(440, y_tot, "EXENTO (E)")
-    p.drawRightString(550, y_tot, f"{factura.monto_exento:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.monto_exento))
     p.line(320, y_tot - 4, 560, y_tot - 4)
     y_tot -= 14
     p.setFont("Helvetica-Bold", 9)
     p.drawRightString(440, y_tot, "TOTAL GENERAL")
-    p.drawRightString(550, y_tot, f"{factura.total:,.2f}")
+    p.drawRightString(550, y_tot, fmt_moneda(factura.total))
 
     p.showPage()
     p.save()
     return response
+
 
 @login_required
 def dashboard(request):
@@ -406,6 +427,7 @@ def dashboard(request):
         'cotizaciones_pendientes': cotizaciones_pendientes,
     }
     return render(request, 'facturacion/dashboard.html', context)
+
 
 @login_required
 def crear_cotizacion(request):
@@ -466,38 +488,35 @@ def crear_cotizacion(request):
         'vehiculos_disponibles': vehiculos_disponibles
     })
 
+
 @login_required
 def eliminar_cotizacion(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     
-    # Validación de seguridad: Si ya está facturada y activa, no se borra
     factura_previa = getattr(cotizacion, 'factura', None)
     if cotizacion.estado == 'F' and factura_previa and factura_previa.estado_pago != 'ANULADA':
         messages.error(request, f'No se puede eliminar la cotización VP-{cotizacion.id} porque tiene una factura activa asociada.')
         return redirect('lista_cotizaciones')
         
     with transaction.atomic():
-        # Devolver los vehículos asociados a estado 'Disponible' si estaban apartados
         for item in cotizacion.items.all():
             if item.vehiculo and item.vehiculo.estado == 'Apartado':
                 item.vehiculo.estado = 'Disponible'
                 item.vehiculo.save()
                 
-        # Eliminar la cotización (los ítems se borran en cascada)
         cotizacion_id_str = cotizacion.id
         cotizacion.delete()
         
     messages.success(request, f'¡Cotización VP-{cotizacion_id_str} eliminada con éxito y vehículos liberados!')
     return redirect('lista_cotizaciones')
 
+
 @login_required
 def generar_factura(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     
-    # Verificamos si existe una factura vinculada previamente
     factura_previa = getattr(cotizacion, 'factura', None)
     
-    # Permitimos avanzar SOLO si no está facturada, o si la factura que tiene está ANULADA
     if cotizacion.estado == 'F' and (not factura_previa or factura_previa.estado_pago != 'ANULADA'):
         messages.warning(request, 'Esta cotización ya ha sido facturada previamente y está activa.')
         return redirect('dashboard')
@@ -508,7 +527,6 @@ def generar_factura(request, cotizacion_id):
     )
 
     if request.method == 'POST':
-        # Si la estamos re-facturando sobre una anulada, usamos "instance" para reciclar el registro
         if factura_previa and factura_previa.estado_pago == 'ANULADA':
             form = FacturaForm(request.POST, instance=factura_previa)
         else:
@@ -572,7 +590,6 @@ def generar_factura(request, cotizacion_id):
                 factura.impuesto_iva = factura.base_imponible * Decimal('0.16')
                 factura.total = factura.base_imponible + factura.monto_exento + factura.impuesto_iva
                 
-                # Al re-facturar, nos aseguramos de que el estado vuelva a Pendiente de Pago
                 factura.estado_pago = 'PENDIENTE' 
                 factura.porcentaje_pago = 0
                 factura.save()
@@ -592,14 +609,13 @@ def generar_factura(request, cotizacion_id):
     }
     return render(request, 'facturacion/generar_factura.html', context)
 
+
 @login_required
 def exportar_inventario_excel(request):
-    # 1. Creamos un libro de Excel en blanco
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Inventario Vehículos"
 
-    # 2. Definimos las 26 cabeceras EXACTAS que pide tu formato
     cabeceras = [
         'N°', 'MARCA', 'MODELO', 'COLOR', 'PLACA', 'AÑO', 'CLASE', 'TIPO', 
         'USO', 'TRANSMISION', 'TIPO DE COMBUSTIBLE', 'N° DE PUESTOS', 'N° DE EJES', 
@@ -608,17 +624,13 @@ def exportar_inventario_excel(request):
         'PLANILLA DE LIQUIDACIÓN', 'FECHA DE FACTURACIÓN', 'FACTURA DE ADQUISIÓN', 
         'REFECIV', 'FECHA FIN DEL CONVENIO'
     ]
-    
-    # Agregamos las cabeceras a la primera fila
     ws.append(cabeceras)
 
-    # 3. Traemos todos los vehículos de la base de datos
     vehiculos = Vehiculo.objects.all().order_by('id')
 
-    # 4. Llenamos las filas una por una
     for contador, v in enumerate(vehiculos, start=1):
         fila = [
-            contador,  # N° autogenerado
+            contador,
             v.marca,
             v.modelo,
             v.color,
@@ -638,7 +650,6 @@ def exportar_inventario_excel(request):
             v.certificado_origen,
             v.servicio,
             v.puerto_entrada,
-            # Formateamos las fechas a texto si existen para evitar conflictos en Excel
             v.fecha_liquidacion.strftime('%Y-%m-%d') if v.fecha_liquidacion else '',
             v.planilla_liquidacion,
             v.fecha_facturacion.strftime('%Y-%m-%d') if v.fecha_facturacion else '',
@@ -648,16 +659,13 @@ def exportar_inventario_excel(request):
         ]
         ws.append(fila)
 
-    # 5. Preparamos la respuesta para que el navegador descargue el archivo
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
     response['Content-Disposition'] = 'attachment; filename=inventario_vehiculos_emvepro.xlsx'
-    
-    # Guardamos el Excel en la respuesta
     wb.save(response)
-    
     return response
+
 
 @login_required
 def importar_inventario_excel(request):
@@ -722,6 +730,7 @@ def importar_inventario_excel(request):
             
     return render(request, 'facturacion/importar_inventario.html')
 
+
 @login_required
 def lista_clientes(request):
     query = request.GET.get('q')
@@ -737,6 +746,7 @@ def lista_clientes(request):
     
     return render(request, 'facturacion/lista_clientes.html', {'clientes': clientes})
 
+
 @login_required
 def crear_cliente(request):
     if request.method == 'POST':
@@ -751,6 +761,7 @@ def crear_cliente(request):
         form = ClienteForm()
         
     return render(request, 'facturacion/crear_cliente.html', {'form': form})
+
 
 @login_required
 def editar_cliente(request, cliente_id):
@@ -769,8 +780,6 @@ def editar_cliente(request, cliente_id):
     return render(request, 'facturacion/crear_cliente.html', {'form': form, 'editando': True, 'cliente': cliente})
 
 
-
-
 @login_required
 def lista_vehiculos(request):
     query = request.GET.get('q')
@@ -784,6 +793,7 @@ def lista_vehiculos(request):
         )
     vehiculos = vehiculos.order_by('-anio', 'marca')
     return render(request, 'facturacion/lista_vehiculos.html', {'vehiculos': vehiculos})
+
 
 @login_required
 def crear_vehiculo(request):
@@ -800,6 +810,7 @@ def crear_vehiculo(request):
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form})
 
+
 @login_required
 def editar_vehiculo(request, vehiculo_id):
     vehiculo = get_object_or_404(Vehiculo, id=vehiculo_id)
@@ -815,7 +826,6 @@ def editar_vehiculo(request, vehiculo_id):
         form = VehiculoForm(instance=vehiculo)
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
-
 
 
 @login_required
@@ -925,9 +935,9 @@ def imprimir_cotizacion(request, cotizacion_id):
             
         p.drawString(60, y_pos, str(index))
         p.drawString(95, y_pos, desc[:48])
-        p.drawRightString(395, y_pos, f"{precio:,.2f}")
+        p.drawRightString(395, y_pos, fmt_moneda(precio))
         p.drawCentredString(445, y_pos, str(cant))
-        p.drawRightString(width - 60, y_pos, f"{subtotal_item:,.2f}")
+        p.drawRightString(width - 60, y_pos, fmt_moneda(subtotal_item))
         y_pos -= 16
 
     p.setStrokeColor(COLOR_AZUL_MARINO)
@@ -946,19 +956,19 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_pos, "BASE IMPONIBLE:")
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 60, y_pos, f"{cotizacion.base_imponible or 0:,.2f}")
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.base_imponible))
     
     y_pos -= 14
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_pos, "IVA (16%):")
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 60, y_pos, f"{cotizacion.impuesto_iva or 0:,.2f}")
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.impuesto_iva))
     
     y_pos -= 15
     p.setFont("Helvetica-Bold", 9.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_pos, "TOTAL GENERAL ($):")
-    p.drawRightString(width - 60, y_pos, f"{cotizacion.total or 0:,.2f}")
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.total))
 
     # --- 6. CONDICIONES Y CONSIDERACIONES ---
     y_pos -= 28
@@ -1010,7 +1020,7 @@ def imprimir_cotizacion(request, cotizacion_id):
         f"EMVEPRO C.A. | RIF: G-20010522-4\n"
         f"Presupuesto: VP-{cotizacion.id}\n"
         f"Cliente: {cliente.nombre_razon_social}\n"
-        f"Total: ${cotizacion.total or 0:,.2f}\n"
+        f"Total: ${fmt_moneda(cotizacion.total)}\n"
         f"Tel: {tel_fijo} / {tel_movil}\n"
         f"IG: {red_social}\n"
         f"Web: {web_url}\n"
@@ -1083,7 +1093,8 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.showPage()
     p.save()
     return response
-    
+
+
 @login_required
 def estado_financiero(request):
     total_facturado = Factura.objects.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
@@ -1105,6 +1116,7 @@ def estado_financiero(request):
         'cotizaciones_pendientes': cotizaciones_pendientes,
     }
     return render(request, 'facturacion/estado_financiero.html', context)
+
 
 @login_required
 def actualizar_pago_factura(request, factura_id):
@@ -1152,6 +1164,7 @@ def actualizar_pago_factura(request, factura_id):
         return redirect('historial_facturas')
     return redirect('estado_financiero')
 
+
 @login_required
 def historial_facturas(request):
     query = request.GET.get('q')
@@ -1167,6 +1180,7 @@ def historial_facturas(request):
         
     facturas = facturas.order_by('-fecha_emision', '-numero_factura')
     return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas})
+
 
 @login_required
 def exportar_facturas_excel(request):
@@ -1212,7 +1226,7 @@ def exportar_facturas_excel(request):
             f.fecha_emision.strftime('%d/%m/%Y'), f.numero_factura, getattr(f, 'numero_control', 'N/A'), estatus_texto, 
             cliente.nombre_razon_social, f"{cliente.tipo_documento}-{cliente.identificacion}", 
             cliente.direccion, cliente.telefono, item.descripcion if item else '',
-            float(f.base_imponible), float(f.impuesto_iva), float(f.monto_exento), float(f.total),
+             fmt_moneda(f.base_imponible), fmt_moneda(f.impuesto_iva), fmt_moneda(f.monto_exento), fmt_moneda(f.total),
             v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
             v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
             v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
@@ -1221,6 +1235,7 @@ def exportar_facturas_excel(request):
 
     wb.save(response)
     return response
+
 
 @login_required
 def lista_cotizaciones(request):
@@ -1235,6 +1250,7 @@ def lista_cotizaciones(request):
         )
         
     return render(request, 'facturacion/lista_cotizaciones.html', {'cotizaciones': cotizaciones})
+
 
 @login_required
 def imprimir_certificado_origen(request, factura_id):
