@@ -13,6 +13,8 @@ from django.db.models import Sum, Prefetch
 from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
 from decimal import Decimal
+from reportlab.graphics.barcode import qr
+from reportlab.graphics.shapes import Drawing
 
 # --- IMPORTACIÓN DE SEGURIDAD ---
 from django.contrib.auth.decorators import login_required
@@ -804,15 +806,14 @@ def imprimir_cotizacion(request, cotizacion_id):
     # --- 1. DIBUJAR LA PLANTILLA DE FONDO ---
     ruta_fondo = os.path.join(settings.BASE_DIR, 'static', 'img', 'Plantilla_Hoja_Membretada2.png')
     if os.path.exists(ruta_fondo):
-        # Dibuja la imagen cubriendo toda la hoja tamaño Carta (612 x 792 pt)
         p.drawImage(ruta_fondo, 0, 0, width=width, height=height, mask='auto')
 
     # --- COLORES INSTITUCIONALES ---
     COLOR_AZUL_MARINO = colors.HexColor('#273376')
     COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_TEXTO_PIE = colors.HexColor('#3B2314') # Tono oscuro formal igual a la referencia
 
     # --- 2. FECHA Y ENCABEZADO DEL DOCUMENTO ---
-    # Bajamos a (height - 135) para quedar justo debajo del cintillo de logos de la imagen
     meses = {
         1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
         7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
@@ -903,7 +904,6 @@ def imprimir_cotizacion(request, cotizacion_id):
         p.drawRightString(width - 60, y_pos, f"{subtotal_item:,.2f}")
         y_pos -= 16
 
-    # Línea de separación de totales
     p.setStrokeColor(COLOR_AZUL_MARINO)
     p.setLineWidth(0.8)
     p.line(320, y_pos + 6, width - 55, y_pos + 6)
@@ -935,7 +935,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawRightString(width - 60, y_pos, f"{cotizacion.total or 0:,.2f}")
 
     # --- 6. CONDICIONES Y CONSIDERACIONES ---
-    y_pos -= 30
+    y_pos -= 28
     p.setFont("Helvetica-Bold", 7.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(55, y_pos, "CONSIDERACIONES PARA LA VENTA:")
@@ -951,8 +951,8 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(55, y_pos - 46, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
     p.drawString(55, y_pos - 54, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
 
-    # --- 7. FIRMAS (Ubicadas por encima de la línea gris inferior de la plantilla) ---
-    y_firmas = 185
+    # --- 7. FIRMAS ---
+    y_firmas = 190
     p.setStrokeColor(COLOR_AZUL_MARINO)
     p.setLineWidth(0.6)
     p.line(85, y_firmas, 245, y_firmas)
@@ -972,13 +972,88 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
     p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
 
-    # --- 8. DATOS DE CONTACTO (Debajo de la línea gris y arriba de la curva tricolor) ---
-    p.setFont("Helvetica-Bold", 6.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(68, 108, "Teléfono: +58 212 802 8300  |  WhatsApp: +58 412 619 8651  |  Correo: contacto@emvepro.gob.ve")
-    p.setFont("Helvetica", 6)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(68, 98, "Final Av. Panteón, Diagonal al Panteón Nacional, Caracas 1010, Distrito Capital - R.B. Venezuela.")
+    # --- 8. BLOQUE DE PIE DE PÁGINA CON QR E ÍCONOS DE CONTACTO ---
+    # Datos de contacto institucionales que irán tanto impresos como dentro del QR
+    tel_fijo = "+58 212 802 8300"
+    tel_movil = "+58 412 619 8651"
+    red_social = "@emvepro_ve"
+    web_url = "emvepro.gob.ve"
+    dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
+    dir_linea2 = "Caracas 1010, Distrito Capital - R.B. Venezuela"
+
+    qr_texto = (
+        f"EMVEPRO C.A. | RIF: G-20010522-4\n"
+        f"Presupuesto: VP-{cotizacion.id}\n"
+        f"Cliente: {cliente.nombre_razon_social}\n"
+        f"Total: ${cotizacion.total or 0:,.2f}\n"
+        f"Tel: {tel_fijo} / {tel_movil}\n"
+        f"IG: {red_social}\n"
+        f"Web: {web_url}\n"
+        f"Dirección: {dir_linea1}, {dir_linea2}"
+    )
+
+    # 8.1 Generar y dibujar el Código QR a la izquierda
+    qr_widget = qr.QrCodeWidget(qr_texto)
+    qr_widget.barLevel = 'M'
+    qr_widget.barFillColor = COLOR_TEXTO_PIE
+    bounds = qr_widget.getBounds()
+    qr_w = bounds[2] - bounds[0]
+    qr_h = bounds[3] - bounds[1]
+    size_qr = 52  # Tamaño del QR en puntos
+    
+    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
+    d.add(qr_widget)
+    
+    x_qr = 68
+    y_qr = 70
+    d.drawOn(p, x_qr, y_qr)
+
+    # Texto debajo del QR ("Dirección Web" / portal institucional)
+    p.setFont("Helvetica-BoldOblique", 6.5)
+    p.setFillColor(COLOR_TEXTO_PIE)
+    p.drawCentredString(x_qr + (size_qr / 2), y_qr - 7, web_url)
+
+    # 8.2 Columna de Íconos y Datos de Contacto a la derecha del QR
+    x_icon = 142
+    x_text = 158
+    p.setStrokeColor(COLOR_TEXTO_PIE)
+    p.setFillColor(COLOR_TEXTO_PIE)
+    p.setLineWidth(0.8)
+
+    # Fila 1: Teléfono fijo
+    y_row1 = 112
+    p.circle(x_icon + 4, y_row1 + 2.5, 4.2, stroke=1, fill=0)
+    p.setFont("Helvetica-Bold", 5.5)
+    p.drawCentredString(x_icon + 4, y_row1 + 0.5, "T")
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(x_text, y_row1, tel_fijo)
+
+    # Fila 2: WhatsApp / Telegram
+    y_row2 = 99
+    p.circle(x_icon + 4, y_row2 + 2.5, 4.2, stroke=1, fill=0)
+    p.setFont("Helvetica-Bold", 5)
+    p.drawCentredString(x_icon + 4, y_row2 + 0.5, "W")
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(x_text, y_row2, tel_movil)
+
+    # Fila 3: Instagram / Red Social (Ícono de cámara vectorial)
+    y_row3 = 86
+    p.roundRect(x_icon, y_row3 - 1, 8.2, 8.2, 2, stroke=1, fill=0)
+    p.circle(x_icon + 4.1, y_row3 + 3.1, 2, stroke=1, fill=0)
+    p.circle(x_icon + 6.5, y_row3 + 5.5, 0.4, stroke=0, fill=1)
+    p.setFont("Helvetica-Oblique", 7.5)
+    p.drawString(x_text, y_row3, red_social)
+
+    # Fila 4: Dirección en 2 líneas (Ícono de Pin de ubicación)
+    y_row4 = 74
+    p.circle(x_icon + 4.1, y_row4 + 1.5, 3.6, stroke=1, fill=0)
+    p.circle(x_icon + 4.1, y_row4 + 1.5, 1.2, stroke=0, fill=1)
+    p.line(x_icon + 1.2, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
+    p.line(x_icon + 7.0, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
+    
+    p.setFont("Helvetica-Oblique", 6.5)
+    p.drawString(x_text, y_row4, dir_linea1)
+    p.drawString(x_text, y_row4 - 8, dir_linea2)
 
     p.showPage()
     p.save()
