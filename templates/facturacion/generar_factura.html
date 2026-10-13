@@ -1,10 +1,16 @@
 {% extends 'base.html' %}
+{% load l10n %}
 
 {% block content %}
-<div class="row mb-4 mt-2">
-    <div class="col-md-12">
-        <h2 class="fw-bold">Emitir Factura Definitiva</h2>
-        <p class="text-muted">Revisa y modifica los detalles de la operación antes de imprimir el documento fiscal.</p>
+<div class="row mb-4 mt-2 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold"><i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i>Emitir Factura Definitiva</h2>
+        <p class="text-muted mb-0">Revisa los ítems, verifica la tasa de cambio y asigna el correlativo fiscal antes de emitir.</p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm">
+            Cotización Origen: #VP-{{ cotizacion.id }}
+        </span>
     </div>
 </div>
 
@@ -13,84 +19,114 @@
     <div class="row">
         <!-- Columna Izquierda: Detalle Editable -->
         <div class="col-md-8 mb-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
-                    <span>Detalle de Servicios / Vehículos</span>
-                    <div>
-                        <span class="badge bg-secondary me-2">Cotización Origen: #{{ cotizacion.id }}</span>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="agregarFila()">+ Agregar Línea</button>
-                    </div>
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between align-items-center py-3">
+                    <span><i class="fa-solid fa-car-side me-2"></i>Detalle de Servicios / Vehículos</span>
+                    <button type="button" class="btn btn-sm btn-warning fw-bold rounded-pill px-3 shadow-sm" onclick="agregarFila()">
+                        <i class="fa-solid fa-plus me-1"></i> Agregar Línea
+                    </button>
                 </div>
                 <div class="card-body p-0">
-                    <table class="table table-hover mb-0" id="tabla-items">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="20%">Vehículo</th>
-                                <th width="35%">Descripción</th>
-                                <th width="10%">Cant.</th>
-                                <th width="15%">Precio Unit.</th>
-                                <th width="5%" class="text-center">IVA</th>
-                                <th width="10%">Total</th>
-                                <th width="5%"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="items-body">
-                            <!-- Pre-cargamos los ítems que ya tenía la cotización -->
-                            {% for item in cotizacion.items.all %}
-                            <tr>
-                                <td>
-                                    <select name="item_vehiculo[]" class="form-select form-select-sm">
-                                        <option value="">-- Ninguno --</option>
-                                        {% for vehiculo in vehiculos_disponibles %}
-                                            <option value="{{ vehiculo.id }}" {% if item.vehiculo and item.vehiculo.id == vehiculo.id %}selected{% endif %}>
-                                                {{ vehiculo.placa }} - {{ vehiculo.marca }}
-                                            </option>
-                                        {% endfor %}
-                                    </select>
-                                </td>
-                                <td>
-                                    <input type="text" name="item_descripcion[]" class="form-control form-control-sm" value="{{ item.descripcion }}" required>
-                                </td>
-                                <td>
-                                    <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc" min="1" value="{{ item.cantidad }}" required>
-                                </td>
-                                <td>
-                                    <!-- Usamos stringformat para asegurar que el decimal se renderice correctamente para el input -->
-                                    <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc" step="0.01" value="{{ item.precio_unitario|stringformat:'f' }}" required>
-                                </td>
-                                <td class="text-center align-middle">
-                                    <input type="checkbox" name="item_iva_calc[]" class="form-check-input input-calc" {% if item.aplica_iva %}checked{% endif %}>
-                                    <input type="hidden" name="item_iva[]" value="{% if item.aplica_iva %}on{% else %}off{% endif %}" class="hidden-iva-val">
-                                </td>
-                                <td class="align-middle fw-bold text-end row-total">0.00</td>
-                                <td class="text-center align-middle">
-                                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarFila(this)">X</button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="tabla-items">
+                            <thead class="table-light small text-uppercase">
+                                <tr>
+                                    <th width="22%" class="ps-3">Vehículo</th>
+                                    <th width="33%">Descripción</th>
+                                    <th width="10%">Cant.</th>
+                                    <th width="15%">Precio Unit. ($)</th>
+                                    <th width="5%" class="text-center">IVA</th>
+                                    <th width="10%" class="text-end">Subtotal ($)</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-body">
+                                <!-- Pre-cargamos los ítems que ya tenía la cotización -->
+                                {% for item in cotizacion.items.all %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <select name="item_vehiculo[]" class="form-select form-select-sm">
+                                            <option value="">-- Ninguno --</option>
+                                            {% for vehiculo in vehiculos_disponibles %}
+                                                <option value="{{ vehiculo.id }}" {% if item.vehiculo and item.vehiculo.id == vehiculo.id %}selected{% endif %}>
+                                                    {{ vehiculo.placa|default:"S/P" }} - {{ vehiculo.marca }} {{ vehiculo.modelo }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="text" name="item_descripcion[]" class="form-control form-control-sm" value="{{ item.descripcion }}" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc text-center" min="1" value="{{ item.cantidad|unlocalize }}" required>
+                                    </td>
+                                    <td>
+                                        <!-- unlocalize garantiza que el input number reciba punto decimal (ej. 15000.00) sin borrarse -->
+                                        <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc text-end font-monospace" step="0.01" value="{{ item.precio_unitario|unlocalize }}" required>
+                                    </td>
+                                    <td class="text-center align-middle">
+                                        <input type="checkbox" name="item_iva_calc[]" class="form-check-input input-calc" {% if item.aplica_iva %}checked{% endif %}>
+                                        <input type="hidden" name="item_iva[]" value="{% if item.aplica_iva %}on{% else %}off{% endif %}" class="hidden-iva-val">
+                                    </td>
+                                    <td class="align-middle fw-bold text-end font-monospace small row-total">0,00</td>
+                                    <td class="text-center align-middle pe-2">
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-circle" style="width: 28px; height: 28px; padding: 0;" onclick="eliminarFila(this)" title="Eliminar fila">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
                 
-                <!-- Totales en tiempo real -->
-                <div class="card-footer bg-light text-end py-3">
-                    <div class="row justify-content-end">
-                        <div class="col-md-5">
-                            <div class="d-flex justify-content-between mb-1">
-                                <span class="text-muted">Base Imponible:</span>
-                                <strong id="resumen-subtotal">0.00</strong>
+                <!-- Totales en tiempo real (Doble Moneda: USD y Bs.) -->
+                <div class="card-footer bg-light py-3 px-4">
+                    <div class="row align-items-center justify-content-between">
+                        <!-- Resumen en Dólares ($) -->
+                        <div class="col-md-5 border-end pe-md-4 mb-3 mb-md-0">
+                            <div class="text-uppercase fw-bold text-secondary small mb-2">
+                                <i class="fa-solid fa-dollar-sign me-1 text-primary"></i>Equivalente en Divisas ($)
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Base Imponible ($):</span>
+                                <span class="font-monospace fw-semibold" id="resumen-subtotal-usd">0,00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">Monto Exento ($):</span>
+                                <span class="font-monospace fw-semibold" id="resumen-exento-usd">0,00</span>
+                            </div>
+                            <div class="d-flex justify-content-between small mb-1">
+                                <span class="text-muted">I.V.A 16% ($):</span>
+                                <span class="font-monospace fw-semibold" id="resumen-iva-usd">0,00</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-1 mt-1">
+                                <span class="fw-bold small">TOTAL ($):</span>
+                                <strong class="font-monospace text-dark" id="resumen-total-usd">$ 0,00</strong>
+                            </div>
+                        </div>
+
+                        <!-- Resumen Fiscal en Bolívares (Bs.) -->
+                        <div class="col-md-6 ps-md-4">
+                            <div class="text-uppercase fw-bold text-primary small mb-2">
+                                <i class="fa-solid fa-coins me-1"></i>Resumen Fiscal en Bolívares (Bs.)
                             </div>
                             <div class="d-flex justify-content-between mb-1">
-                                <span class="text-muted">Monto Exento:</span>
-                                <strong id="resumen-exento">0.00</strong>
+                                <span class="text-muted small">Base Imponible (Bs.):</span>
+                                <strong class="font-monospace" id="resumen-subtotal">0,00</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1">
+                                <span class="text-muted small">Monto Exento (Bs.):</span>
+                                <strong class="font-monospace" id="resumen-exento">0,00</strong>
                             </div>
                             <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">I.V.A (16%):</span>
-                                <strong id="resumen-iva">0.00</strong>
+                                <span class="text-muted small">I.V.A (16%) (Bs.):</span>
+                                <strong class="font-monospace" id="resumen-iva">0,00</strong>
                             </div>
                             <div class="d-flex justify-content-between border-top pt-2 mt-2">
                                 <span class="fw-bold fs-5">TOTAL GENERAL:</span>
-                                <strong class="fs-5 text-primary" id="resumen-total">0.00</strong>
+                                <strong class="fs-5 text-primary font-monospace" id="resumen-total">Bs. 0,00</strong>
                             </div>
                         </div>
                     </div>
@@ -100,40 +136,52 @@
 
         <!-- Columna Derecha: Controles de la Forma Libre -->
         <div class="col-md-4">
-            <div class="card shadow-sm border-primary">
-                <div class="card-header bg-primary text-white fw-bold">
-                    Datos de la Forma Libre
+            <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                <div class="card-header bg-primary text-white fw-bold py-3">
+                    <i class="fa-solid fa-print me-2"></i>Datos de la Forma Libre
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-warning py-2 mb-4" style="font-size: 0.85rem;" role="alert">
-                        ⚠️ Verifica el número correlativo en el talonario físico. Esta acción procesará la venta.
+                    <div class="alert alert-warning py-2 mb-3 small" role="alert">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Verifica el número correlativo en el talonario físico. Esta acción rebajará el vehículo del inventario.
+                    </div>
+
+                    <!-- CAMPO DE TASA DE CAMBIO -->
+                    <div class="mb-3 p-3 bg-light rounded-3 border border-primary-subtle">
+                        <label class="form-label text-primary fw-bold mb-1">
+                            <i class="fa-solid fa-money-bill-transfer me-1"></i>Tasa de Cambio (Bs. / $)
+                        </label>
+                        <input type="number" name="tasa_cambio" id="input-tasa" class="form-control font-monospace fw-bold input-calc" step="0.0001" min="0.0001" value="1.00" required>
+                        <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">
+                            Si los precios unitarios ya están escritos en Bolívares, deja la tasa en <strong>1.00</strong>. Si están en Dólares, coloca la tasa BCV del día.
+                        </small>
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label text-muted fw-bold">Número de Factura</label>
+                        <label class="form-label text-muted fw-bold small">Número de Factura</label>
                         {{ form.numero_factura }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted fw-bold">Número de Control</label>
+                        <label class="form-label text-muted fw-bold small">Número de Control</label>
                         {{ form.numero_control }}
                     </div>
                     <div class="mb-3">
-                        <label class="form-label text-muted fw-bold">Fecha de Emisión</label>
+                        <label class="form-label text-muted fw-bold small">Fecha de Emisión</label>
                         {{ form.fecha_emision }}
                     </div>
                     
-                    <!-- NUEVO CAMPO DE COLETILLAS -->
                     <div class="mb-4">
-                        <label class="form-label text-muted fw-bold">Coletillas y Condiciones</label>
+                        <label class="form-label text-muted fw-bold small">Coletillas y Condiciones</label>
                         {{ form.coletillas }}
                         <div class="form-text text-muted" style="font-size: 0.75rem;">
-                            <i class="fa-solid fa-circle-info"></i> Este texto aparecerá al pie de la factura impresa. Puedes editarlo para esta factura específica.
+                            <i class="fa-solid fa-circle-info"></i> Este texto aparecerá al pie de la factura impresa.
                         </div>
                     </div>
                     
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-success fw-bold text-uppercase">🧾 Procesar e Imprimir</button>
-                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Volver al Panel</a>
+                        <button type="submit" class="btn btn-success fw-bold text-uppercase rounded-pill py-2 shadow-sm">
+                            <i class="fa-solid fa-check-double me-1"></i> Procesar e Imprimir
+                        </button>
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary rounded-pill">Volver al Panel</a>
                     </div>
                 </div>
             </div>
@@ -144,11 +192,11 @@
 <!-- TEMPLATE OCULTO PARA JAVASCRIPT (Nuevas Filas) -->
 <template id="fila-template">
     <tr>
-        <td>
+        <td class="ps-3">
             <select name="item_vehiculo[]" class="form-select form-select-sm">
                 <option value="">-- Ninguno --</option>
                 {% for vehiculo in vehiculos_disponibles %}
-                    <option value="{{ vehiculo.id }}">{{ vehiculo.placa }} - {{ vehiculo.marca }}</option>
+                    <option value="{{ vehiculo.id }}">{{ vehiculo.placa|default:"S/P" }} - {{ vehiculo.marca }} {{ vehiculo.modelo }}</option>
                 {% endfor %}
             </select>
         </td>
@@ -156,25 +204,33 @@
             <input type="text" name="item_descripcion[]" class="form-control form-control-sm" required>
         </td>
         <td>
-            <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc" min="1" value="1" required>
+            <input type="number" name="item_cantidad[]" class="form-control form-control-sm input-calc text-center" min="1" value="1" required>
         </td>
         <td>
-            <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc" step="0.01" value="0.00" required>
+            <input type="number" name="item_precio[]" class="form-control form-control-sm input-calc text-end font-monospace" step="0.01" value="0.00" required>
         </td>
         <td class="text-center align-middle">
             <input type="checkbox" name="item_iva_calc[]" class="form-check-input input-calc" checked>
             <input type="hidden" name="item_iva[]" value="on" class="hidden-iva-val">
         </td>
-        <td class="align-middle fw-bold text-end row-total">0.00</td>
-        <td class="text-center align-middle">
-            <button type="button" class="btn btn-sm btn-danger" onclick="eliminarFila(this)">X</button>
+        <td class="align-middle fw-bold text-end font-monospace small row-total">0,00</td>
+        <td class="text-center align-middle pe-2">
+            <button type="button" class="btn btn-sm btn-outline-danger rounded-circle" style="width: 28px; height: 28px; padding: 0;" onclick="eliminarFila(this)" title="Eliminar fila">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </td>
     </tr>
 </template>
 
 <script>
+    function formatearMoneda(valor) {
+        return Number(valor || 0).toLocaleString('es-VE', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", function() {
-        // Inicializar eventos para las filas precargadas desde la base de datos
         const filasExistentes = document.querySelectorAll('#items-body tr');
         filasExistentes.forEach(fila => {
             const inputs = fila.querySelectorAll('.input-calc');
@@ -192,7 +248,12 @@
             }
         });
 
-        // Ejecutamos el cálculo una vez para mostrar los totales iniciales
+        const inputTasa = document.getElementById('input-tasa');
+        if (inputTasa) {
+            inputTasa.addEventListener('input', calcularTotales);
+            inputTasa.addEventListener('change', calcularTotales);
+        }
+
         calcularTotales();
     });
 
@@ -225,8 +286,9 @@
 
     function calcularTotales() {
         const filas = document.querySelectorAll('#items-body tr');
-        let totalBaseImponible = 0;
-        let totalExento = 0;
+        const tasaCambio = parseFloat(document.getElementById('input-tasa').value) || 1;
+        let baseImponibleUsd = 0;
+        let exentoUsd = 0;
         const TASA_IVA = 0.16;
 
         filas.forEach(fila => {
@@ -238,23 +300,35 @@
             const subtotalFila = cantidad * precio;
             const rowTotalElement = fila.querySelector('.row-total');
             if(rowTotalElement) {
-                rowTotalElement.textContent = subtotalFila.toFixed(2);
+                rowTotalElement.textContent = formatearMoneda(subtotalFila);
             }
 
             if (aplicaIva) {
-                totalBaseImponible += subtotalFila;
+                baseImponibleUsd += subtotalFila;
             } else {
-                totalExento += subtotalFila;
+                exentoUsd += subtotalFila;
             }
         });
 
-        const totalIva = totalBaseImponible * TASA_IVA;
-        const totalGeneral = totalBaseImponible + totalExento + totalIva;
+        // Cálculos en USD
+        const ivaUsd = baseImponibleUsd * TASA_IVA;
+        const totalUsd = baseImponibleUsd + exentoUsd + ivaUsd;
 
-        document.getElementById('resumen-subtotal').textContent = totalBaseImponible.toFixed(2);
-        document.getElementById('resumen-exento').textContent = totalExento.toFixed(2);
-        document.getElementById('resumen-iva').textContent = totalIva.toFixed(2);
-        document.getElementById('resumen-total').textContent = totalGeneral.toFixed(2);
+        document.getElementById('resumen-subtotal-usd').textContent = formatearMoneda(baseImponibleUsd);
+        document.getElementById('resumen-exento-usd').textContent = formatearMoneda(exentoUsd);
+        document.getElementById('resumen-iva-usd').textContent = formatearMoneda(ivaUsd);
+        document.getElementById('resumen-total-usd').textContent = '$ ' + formatearMoneda(totalUsd);
+
+        // Cálculos en Bolívares (Bs.) según la tasa de cambio
+        const baseImponibleBs = baseImponibleUsd * tasaCambio;
+        const exentoBs = exentoUsd * tasaCambio;
+        const ivaBs = baseImponibleBs * TASA_IVA;
+        const totalBs = baseImponibleBs + exentoBs + ivaBs;
+
+        document.getElementById('resumen-subtotal').textContent = formatearMoneda(baseImponibleBs);
+        document.getElementById('resumen-exento').textContent = formatearMoneda(exentoBs);
+        document.getElementById('resumen-iva').textContent = formatearMoneda(ivaBs);
+        document.getElementById('resumen-total').textContent = 'Bs. ' + formatearMoneda(totalBs);
     }
 </script>
 {% endblock %}
