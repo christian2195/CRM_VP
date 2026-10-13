@@ -7,6 +7,7 @@ urlpatterns = [
     path('cotizacion/imprimir/<int:cotizacion_id>/', views.imprimir_cotizacion, name='imprimir_cotizacion'),
     path('imprimir/<int:factura_id>/', views.imprimir_factura_forma_libre, name='imprimir_factura'),
     path('facturacion/imprimir-institucional/<int:factura_id>/', views.imprimir_factura_institucional, name='imprimir_factura_institucional'),
+    path('facturacion/imprimir-dolares/<int:factura_id>/', views.imprimir_factura_dolares, name='imprimir_factura_dolares'),
     path('cotizacion/<int:cotizacion_id>/facturar/', views.generar_factura, name='generar_factura'),
     path('cotizaciones/', views.lista_cotizaciones, name='lista_cotizaciones'),
     path('cotizacion/<int:cotizacion_id>/eliminar/', views.eliminar_cotizacion, name='eliminar_cotizacion'),
