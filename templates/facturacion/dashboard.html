@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load l10n %}
 
 {% block content %}
 <!-- Encabezado del Dashboard -->
@@ -66,7 +67,7 @@
                         <div>
                             <span class="fw-bold text-primary">#VP-{{ cotizacion.id }}</span>
                             <div class="text-dark fw-medium small">{{ cotizacion.cliente.nombre_razon_social|truncatechars:26 }}</div>
-                            <small class="text-muted font-monospace fw-semibold">Bs. {{ cotizacion.total|floatformat:2 }}</small>
+                            <small class="text-muted font-monospace fw-semibold">$ {{ cotizacion.total|floatformat:"2g" }}</small>
                             <br>
                             <!-- Identificador de Usuario -->
                             <small class="text-secondary" style="font-size: 0.75rem;">
@@ -98,7 +99,7 @@
         <div class="card shadow-sm border-0 h-100">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
                 <span class="fw-bold text-dark"><i class="fa-solid fa-file-invoice text-success me-2"></i>Últimas Facturas Emitidas</span>
-                <a href="{% url 'lista_vehiculos' %}" class="small text-decoration-none fw-bold text-primary">Ver Inventario &rarr;</a>
+                <a href="{% url 'historial_facturas' %}" class="small text-decoration-none fw-bold text-primary">Ver Historial &rarr;</a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -116,7 +117,12 @@
                         <tbody>
                             {% for factura in facturas %}
                             <tr>
-                                <td class="ps-4 fw-bold text-dark">{{ factura.numero_factura }}</td>
+                                <td class="ps-4 fw-bold text-dark">
+                                    {{ factura.numero_factura }}
+                                    {% if factura.estado_pago == 'ANULADA' %}
+                                        <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">Anulada</span>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <div class="text-truncate" style="max-width: 140px;" title="{{ factura.cotizacion.cliente.nombre_razon_social }}">
                                         {{ factura.cotizacion.cliente.nombre_razon_social }}
@@ -129,12 +135,16 @@
                                         <i class="fa-solid fa-user-pen me-1 opacity-75"></i>{{ factura.usuario.username|title|default:"N/A" }}
                                     </small>
                                 </td>
-                                <td class="text-end font-monospace small">Bs. {{ factura.total|floatformat:2 }}</td>
+                                <td class="text-end font-monospace small">Bs. {{ factura.total|floatformat:"2g" }}</td>
                                 <td class="text-center pe-4">
                                     <div class="btn-group shadow-sm" role="group">
-                                        <!-- Factura Estándar / Forma Libre -->
-                                        <a href="{% url 'imprimir_factura' factura.id %}" target="_blank" class="btn btn-sm btn-outline-primary" title="Factura Estándar PDF">
+                                        <!-- Factura Estándar / Forma Libre (Bs.) -->
+                                        <a href="{% url 'imprimir_factura' factura.id %}" target="_blank" class="btn btn-sm btn-outline-primary" title="Factura Forma Libre (Bs.)">
                                             <i class="fa-solid fa-print"></i>
+                                        </a>
+                                        <!-- Factura en Dólares ($) -->
+                                        <a href="{% url 'imprimir_factura_dolares' factura.id %}" target="_blank" class="btn btn-sm btn-outline-info" title="Factura en Dólares ($)">
+                                            <i class="fa-solid fa-dollar-sign"></i>
                                         </a>
                                         <!-- Factura Institucional con SAP -->
                                         <a href="{% url 'imprimir_factura_institucional' factura.id %}" target="_blank" class="btn btn-sm btn-outline-dark" title="Factura Institucional Con SAP">
