@@ -719,15 +719,52 @@ def importar_inventario_excel(request):
 
 @login_required
 def lista_clientes(request):
-    # Precargamos las cotizaciones y sus facturas asociadas para un rendimiento óptimo
+    query = request.GET.get('q')
     clientes = Cliente.objects.prefetch_related(
         Prefetch('cotizaciones', queryset=Cotizacion.objects.prefetch_related('factura', 'items__vehiculo'))
     ).order_by('-id')
     
-    context = {
-        'clientes': clientes,
-    }
-    return render(request, 'facturacion/lista_clientes.html', context)
+    if query:
+        clientes = clientes.filter(
+            Q(nombre_razon_social__icontains=query) |
+            Q(identificacion__icontains=query)
+        )
+    
+    return render(request, 'facturacion/lista_clientes.html', {'clientes': clientes})
+
+@login_required
+def crear_cliente(request):
+    if request.method == 'POST':
+        form = ClienteForm(request.POST)
+        if form.is_valid():
+            cliente = form.save()
+            messages.success(request, f'¡Cliente {cliente.nombre_razon_social} registrado con éxito!')
+            return redirect('lista_clientes')
+        else:
+            messages.error(request, 'Ocurrió un error al guardar el cliente. Revisa los campos.')
+    else:
+        form = ClienteForm()
+        
+    return render(request, 'facturacion/crear_cliente.html', {'form': form})
+
+@login_required
+def editar_cliente(request, cliente_id):
+    cliente = get_object_or_404(Cliente, id=cliente_id)
+    if request.method == 'POST':
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'¡Datos del cliente {cliente.nombre_razon_social} actualizados con éxito!')
+            return redirect('lista_clientes')
+        else:
+            messages.error(request, 'Ocurrió un error al actualizar el cliente. Revisa los campos.')
+    else:
+        form = ClienteForm(instance=cliente)
+        
+    return render(request, 'facturacion/crear_cliente.html', {'form': form, 'editando': True, 'cliente': cliente})
+
+
+
 
 @login_required
 def lista_vehiculos(request):
@@ -774,23 +811,7 @@ def editar_vehiculo(request, vehiculo_id):
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
 
-@login_required
-def crear_cliente(request):
-    if request.method == 'POST':
-        form = ClienteForm(request.POST)
-        if form.is_valid():
-            cliente = form.save()
-            messages.success(request, f'¡Cliente {cliente.nombre_razon_social} registrado con éxito!')
-            return redirect('lista_clientes')
-        else:
-            messages.error(request, 'Ocurrió un error al guardar el cliente. Revisa los campos.')
-    else:
-        form = ClienteForm()
-        
-    return render(request, 'facturacion/crear_cliente.html', {'form': form})
 
-import os
-from django.conf import settings
 
 @login_required
 def imprimir_cotizacion(request, cotizacion_id):
