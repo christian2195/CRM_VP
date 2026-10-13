@@ -12,7 +12,6 @@ urlpatterns = [
     path('facturacion/imprimir-institucional-sin-sap-dolares/<int:factura_id>/', views.imprimir_factura_institucional_sin_sap_dolares, name='imprimir_factura_institucional_sin_sap_dolares'),
     path('cotizacion/<int:cotizacion_id>/facturar/', views.generar_factura, name='generar_factura'),
     path('cotizaciones/', views.lista_cotizaciones, name='lista_cotizaciones'),
-    path('cotizaciones/anular/<int:cotizacion_id>/', views.anular_cotizacion, name='anular_cotizacion'),
     path('cotizacion/<int:cotizacion_id>/eliminar/', views.eliminar_cotizacion, name='eliminar_cotizacion'),
     path('clientes/', views.lista_clientes, name='lista_clientes'),
     path('clientes/nuevo/', views.crear_cliente, name='crear_cliente'),
