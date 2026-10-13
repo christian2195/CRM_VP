@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
+{% load l10n %}
 
 {% block content %}
 <div class="row mb-4 align-items-center">
     <div class="col-md-7">
-        <h2 class="fw-bold mb-1" style="letter-spacing: -0.5px;"><i class="fa-solid fa-file-circle-check text-warning me-2"></i>Historial de Cotizaciones</h2>
-        <p class="text-secondary mb-0">Listado general de presupuestos emitidos a clientes.</p>
+        <h2 class="fw-bold mb-1" style="letter-spacing: -0.5px;">
+            <i class="fa-solid fa-file-circle-check text-primary me-2"></i>Historial de Cotizaciones
+        </h2>
+        <p class="text-secondary mb-0">Listado general de presupuestos comerciales emitidos a clientes.</p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0">
         <!-- BOTÓN PARA CREAR NUEVA COTIZACIÓN -->
@@ -31,15 +34,15 @@
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light text-uppercase fs-7 text-secondary">
+                <thead class="bg-primary text-white text-uppercase small">
                     <tr>
-                        <th class="ps-4">N° Cotización</th>
-                        <th>Cliente / RIF</th>
-                        <th>Fecha</th>
-                        <th>Emitido Por</th>
-                        <th>Estado</th>
-                        <th class="text-end">Total (Bs.)</th>
-                        <th class="text-center pe-4">Acciones</th>
+                        <th class="ps-4 py-3">N° Cotización</th>
+                        <th class="py-3">Cliente / RIF</th>
+                        <th class="py-3">Fecha</th>
+                        <th class="py-3">Emitido Por</th>
+                        <th class="py-3">Estado</th>
+                        <th class="text-end py-3">Total ($)</th>
+                        <th class="text-center py-3 pe-4">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,7 +50,7 @@
                     <tr>
                         <td class="ps-4 fw-bold text-primary">#VP-{{ cot.id }}</td>
                         <td>
-                            <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;" title="{{ cot.cliente.nombre_razon_social }}">
+                            <div class="fw-semibold text-dark text-truncate" style="max-width: 220px;" title="{{ cot.cliente.nombre_razon_social }}">
                                 {{ cot.cliente.nombre_razon_social }}
                             </div>
                             <small class="text-secondary font-monospace">{{ cot.cliente.tipo_documento }}-{{ cot.cliente.identificacion }}</small>
@@ -60,32 +63,38 @@
                         </td>
                         <td>
                             {% if cot.estado == 'F' %}
-                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-2">Facturada</span>
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-3 py-1">Facturada</span>
                             {% elif cot.estado == 'A' %}
-                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-2">Anulada</span>
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-3 py-1">Anulada</span>
                             {% else %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill px-2">Pendiente</span>
+                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-3 py-1">Pendiente</span>
                             {% endif %}
                         </td>
-                        <td class="text-end font-monospace fw-semibold">Bs. {{ cot.total|floatformat:2 }}</td>
+                        <td class="text-end font-monospace fw-semibold">$ {{ cot.total|floatformat:"2g" }}</td>
                         <td class="text-center pe-4">
-                            <div class="btn-group shadow-sm rounded-pill bg-light p-1" role="group">
-                                <!-- Botón PDF -->
-                                <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="PDF Cotización">
-                                    <i class="fa-solid fa-file-pdf text-danger"></i>
+                            <div class="btn-group shadow-sm" role="group">
+                                <!-- Botón PDF Cotización -->
+                                <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-outline-danger" title="Descargar Presupuesto PDF">
+                                    <i class="fa-solid fa-file-pdf"></i>
                                 </a>
                                 
-                                <!-- Botón Generar Factura (Solo si no está facturada) -->
+                                <!-- Botón Generar Factura (Si está pendiente) o Ver Facturas (Si ya está facturada) -->
                                 {% if cot.estado != 'F' %}
-                                <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="Generar Factura">
-                                    <i class="fa-solid fa-file-invoice text-warning"></i>
-                                </a>
+                                    <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-warning fw-bold text-dark px-2" title="Emitir Factura Fiscal">
+                                        <i class="fa-solid fa-file-invoice me-1"></i> Facturar
+                                    </a>
+                                    <!-- Botón Eliminar Cotización -->
+                                    <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-secondary" title="Eliminar Cotización" onclick="return confirm('¿Estás seguro de que deseas eliminar la cotización VP-{{ cot.id }}? Si tenía vehículos apartados, volverán a estar disponibles.');">
+                                        <i class="fa-solid fa-trash-can text-danger"></i>
+                                    </a>
+                                {% elif cot.factura %}
+                                    <a href="{% url 'imprimir_factura' cot.factura.id %}" target="_blank" class="btn btn-sm btn-outline-primary" title="Factura Forma Libre (Bs.)">
+                                        <i class="fa-solid fa-print"></i>
+                                    </a>
+                                    <a href="{% url 'imprimir_factura_dolares' cot.factura.id %}" target="_blank" class="btn btn-sm btn-outline-info" title="Factura en Dólares ($)">
+                                        <i class="fa-solid fa-dollar-sign"></i>
+                                    </a>
                                 {% endif %}
-
-                                <!-- Botón Eliminar / Anular Cotización -->
-                                <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-white rounded-pill px-2 py-0" title="Eliminar Cotización" onclick="return confirm('¿Estás seguro de que deseas eliminar la cotización VP-{{ cot.id }}? Si tenía vehículos apartados, volverán a estar disponibles.');">
-                                    <i class="fa-solid fa-trash-can text-danger"></i>
-                                </a>
                             </div>
                         </td>
                     </tr>
@@ -93,7 +102,7 @@
                     <tr>
                         <td colspan="7" class="text-center py-5 text-secondary">
                             <i class="fa-solid fa-file-circle-xmark fs-2 mb-2 d-block text-black-50 opacity-50"></i>
-                            No se encontraron cotizaciones.
+                            No se encontraron cotizaciones registradas.
                         </td>
                     </tr>
                     {% endfor %}
