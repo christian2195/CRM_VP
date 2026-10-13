@@ -901,7 +901,29 @@ def crear_cotizacion(request):
         'vehiculos_disponibles': vehiculos_disponibles
     })
 
+@login_required
 def eliminar_cotizacion(request, cotizacion_id):
+    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
+    
+    # Validación: Si ya está facturada y activa, no se puede anular
+    factura_previa = getattr(cotizacion, 'factura', None)
+    if cotizacion.estado == 'F' and factura_previa and factura_previa.estado_pago != 'ANULADA':
+        messages.error(request, f'No se puede anular la cotización VP-{cotizacion.id} porque tiene una factura activa asociada.')
+        return redirect('lista_cotizaciones')
+        
+    with transaction.atomic():
+        # Devolver los vehículos asociados a estado 'Disponible' si estaban apartados
+        for item in cotizacion.items.all():
+            if item.vehiculo and item.vehiculo.estado == 'Apartado':
+                item.vehiculo.estado = 'Disponible'
+                item.vehiculo.save()
+                
+        # Cambiamos el estado a 'A' (Anulada) para conservarla en el historial
+        cotizacion.estado = 'A'
+        cotizacion.save()
+        
+    messages.success(request, f'¡Cotización VP-{cotizacion.id} anulada con éxito y vehículos liberados!')
+    return redirect('lista_cotizaciones')
 
 
 @login_required
