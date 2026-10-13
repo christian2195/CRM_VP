@@ -414,6 +414,159 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.save()
     return response
 
+@login_required
+def imprimir_factura_dolares(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    cotizacion = factura.cotizacion
+    cliente = cotizacion.cliente
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Factura_USD_{factura.numero_factura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(400, 620, "FACTURA N°:")
+    p.drawString(400, 600, "FECHA DE EMISIÓN:")
+    p.setFont("Helvetica", 9)
+    p.drawRightString(550, 620, str(factura.numero_factura))
+    p.drawRightString(550, 600, factura.fecha_emision.strftime('%d/%m/%Y'))
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
+    p.drawString(40, 495, "C.I./R.I.F:")
+    p.drawString(40, 475, "DIRECCIÓN:")
+    p.drawString(40, 455, "TELÉFONO")
+    p.setFont("Helvetica", 8)
+    p.drawString(250, 540, str(cliente.nombre_razon_social))
+    p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
+    p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
+    p.drawString(150, 455, str(cliente.telefono or ''))
+    
+    y_line1 = 435
+    p.setLineWidth(1.5)
+    p.line(40, y_line1, 560, y_line1)
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(55, y_line1 - 12, "CANTIDAD")
+    p.drawString(130, y_line1 - 12, "DESCRIPCION")
+    p.drawString(280, y_line1 - 12, "TIPO DE IVA")
+    p.drawString(390, y_line1 - 12, "ALIC.%")
+    p.drawRightString(550, y_line1 - 12, "PREC. $")
+    y_line2 = y_line1 - 18
+    p.line(40, y_line2, 560, y_line2)
+    
+    y_items = y_line2 - 14
+    p.setFont("Helvetica", 8)
+    vehiculo_principal = None
+    
+    base_imponible_usd = Decimal('0.00')
+    monto_exento_usd = Decimal('0.00')
+    
+    for item in cotizacion.items.all():
+        if item.vehiculo and not vehiculo_principal:
+            vehiculo_principal = item.vehiculo
+        tipo_iva = "ALIC. GENER." if item.aplica_iva else "EXENTO"
+        alic_porcentaje = "16,00%" if item.aplica_iva else "0,00%"
+        
+        subtotal_item = Decimal(str(item.cantidad)) * Decimal(str(item.precio_unitario))
+        if item.aplica_iva:
+            base_imponible_usd += subtotal_item
+        else:
+            monto_exento_usd += subtotal_item
+            
+        p.drawString(75, y_items, str(item.cantidad))
+        p.drawString(130, y_items, item.descripcion[:35])
+        p.drawString(280, y_items, tipo_iva)
+        p.drawString(390, y_items, alic_porcentaje)
+        p.drawRightString(550, y_items, fmt_moneda(subtotal_item))
+        y_items -= 16
+
+    impuesto_iva_usd = base_imponible_usd * Decimal('0.16')
+    total_usd = base_imponible_usd + monto_exento_usd + impuesto_iva_usd
+
+    p.setLineWidth(1)
+    p.line(40, y_items + 4, 560, y_items + 4)
+    
+    y_veh = y_items - 12
+    if vehiculo_principal:
+        p.setFont("Helvetica-Bold", 8)
+        p.drawString(40, y_veh, "DESCRIPCIÓN DEL VEHÍCULO")
+        y_veh -= 14
+        
+        left_labels = [
+            ("MARCA:", vehiculo_principal.marca),
+            ("MODELO:", vehiculo_principal.modelo),
+            ("COLOR:", vehiculo_principal.color),
+            ("PLACA:", vehiculo_principal.placa or 'S/P'),
+            ("AÑO:", vehiculo_principal.anio),
+            ("CLASE:", vehiculo_principal.clase),
+            ("TIPO:", vehiculo_principal.tipo),
+            ("USO:", vehiculo_principal.uso),
+            ("TRANSMISIÓN:", vehiculo_principal.transmision)
+        ]
+        right_labels = [
+            ("TIPO DE COMBUSTIBLE:", vehiculo_principal.tipo_combustible),
+            ("N° DE PUESTO:", vehiculo_principal.num_puestos),
+            ("N° EJES :", vehiculo_principal.num_ejes),
+            ("PESO (TARA):", vehiculo_principal.peso_tara),
+            ("CAPACIDAD DE CARGA (KG.):", vehiculo_principal.capacidad_carga),
+            ("SERIAL DE MOTOR:", vehiculo_principal.serial_motor),
+            ("SERIAL DE CARROCERIA:", vehiculo_principal.serial_carroceria_niv),
+            ("SERIAL NIV:", vehiculo_principal.serial_carroceria_niv),
+            ("SERIE/VERSIÓN:", getattr(vehiculo_principal, 'serie_version', '') or '')
+        ]
+        
+        y_curr = y_veh
+        for label, val in left_labels:
+            p.setFont("Helvetica-Bold", 7.5)
+            p.drawString(40, y_curr, label)
+            p.setFont("Helvetica", 7.5)
+            p.drawString(150, y_curr, str(val or ''))
+            y_curr -= 11
+            
+        y_curr_r = y_veh
+        for label, val in right_labels:
+            p.setFont("Helvetica-Bold", 7.5)
+            p.drawString(300, y_curr_r, label)
+            p.setFont("Helvetica", 7.5)
+            p.drawString(430, y_curr_r, str(val or ''))
+            y_curr_r -= 11
+            
+        y_totales_start = min(y_curr, y_curr_r) - 15
+    else:
+        y_totales_start = y_veh - 10
+
+    # --- PIE DE PÁGINA (TOTALES EN USD Y COLETILLAS) ---
+    p.setLineWidth(1)
+    p.line(40, y_totales_start + 15, 560, y_totales_start + 15)
+    y_tot = y_totales_start
+    
+    if factura.coletillas:
+        p.setFont("Helvetica-Bold", 7.5)
+        p.drawString(40, y_tot, "Condiciones y Coletillas:")
+        p.setFont("Helvetica", 7)
+        y_col = y_tot - 10
+        for linea in str(factura.coletillas).split('\n'):
+            p.drawString(40, y_col, linea.strip())
+            y_col -= 9
+            
+    p.setFont("Helvetica-Bold", 8)
+    p.drawRightString(440, y_tot, "BASE IMPONIBLE GRAVABLE ($)")
+    p.drawRightString(550, y_tot, fmt_moneda(base_imponible_usd))
+    y_tot -= 14
+    p.drawRightString(440, y_tot, "I.V.A. (16%) ($)")
+    p.drawRightString(550, y_tot, fmt_moneda(impuesto_iva_usd))
+    y_tot -= 14
+    p.drawRightString(440, y_tot, "EXENTO (E) ($)")
+    p.drawRightString(550, y_tot, fmt_moneda(monto_exento_usd))
+    p.line(320, y_tot - 4, 560, y_tot - 4)
+    y_tot -= 14
+    p.setFont("Helvetica-Bold", 9)
+    p.drawRightString(440, y_tot, "TOTAL GENERAL ($)")
+    p.drawRightString(550, y_tot, fmt_moneda(total_usd))
+
+    p.showPage()
+    p.save()
+    return response
 
 @login_required
 def dashboard(request):
