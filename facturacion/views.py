@@ -587,47 +587,55 @@ def crear_cotizacion(request):
     if request.method == 'POST':
         form = CotizacionForm(request.POST)
         if form.is_valid():
-            cotizacion = form.save(commit=False)
-            cotizacion.usuario = request.user
-            cotizacion.save()
-            
-            descriptions = request.POST.getlist('item_descripcion[]')
-            cantidades = request.POST.getlist('item_cantidad[]')
-            precios = request.POST.getlist('item_precio[]')
-            vehiculos = request.POST.getlist('item_vehiculo[]')
-            
-            base_imponible = 0
-            
-            for i in range(len(descriptions)):
-                if not descriptions[i].strip():
-                    continue 
+            with transaction.atomic():
+                cotizacion = form.save(commit=False)
+                cotizacion.usuario = request.user
+                cotizacion.save()
                 
-                desc = descriptions[i]
-                cant = int(cantidades[i]) if cantidades[i] else 1
-                precio = float(precios[i]) if precios[i] else 0.0
+                descriptions = request.POST.getlist('item_descripcion[]')
+                cantidades = request.POST.getlist('item_cantidad[]')
+                precios = request.POST.getlist('item_precio[]')
+                vehiculos = request.POST.getlist('item_vehiculo[]')
+                ivas = request.POST.getlist('item_iva[]')
                 
-                vehiculo_id = vehiculos[i] if i < len(vehiculos) and vehiculos[i] else None
-                vehiculo = Vehiculo.objects.filter(id=vehiculo_id).first() if vehiculo_id else None
+                base_imponible = Decimal('0.00')
+                monto_exento = Decimal('0.00')
                 
-                subtotal_linea = cant * precio
-                base_imponible += subtotal_linea
+                for i in range(len(descriptions)):
+                    if not descriptions[i].strip():
+                        continue 
+                    
+                    desc = descriptions[i]
+                    cant = int(cantidades[i]) if cantidades[i] else 1
+                    precio = Decimal(precios[i]) if precios[i] else Decimal('0.00')
+                    aplica_iva = True if (i < len(ivas) and ivas[i] == 'on') else False
+                    
+                    vehiculo_id = vehiculos[i] if i < len(vehiculos) and vehiculos[i] else None
+                    vehiculo = Vehiculo.objects.filter(id=vehiculo_id).first() if vehiculo_id else None
+                    
+                    subtotal_linea = cant * precio
+                    if aplica_iva:
+                        base_imponible += subtotal_linea
+                    else:
+                        monto_exento += subtotal_linea
+                    
+                    ItemCotizacion.objects.create(
+                        cotizacion=cotizacion,
+                        vehiculo=vehiculo,
+                        descripcion=desc,
+                        cantidad=cant,
+                        precio_unitario=precio,
+                        aplica_iva=aplica_iva
+                    )
                 
-                ItemCotizacion.objects.create(
-                    cotizacion=cotizacion,
-                    vehiculo=vehiculo,
-                    descripcion=desc,
-                    cantidad=cant,
-                    precio_unitario=precio
-                )
-            
-            impuesto_iva = base_imponible * 0.16
-            total_general = base_imponible + impuesto_iva
-            
-            cotizacion.base_imponible = base_imponible
-            cotizacion.impuesto_iva = impuesto_iva
-            cotizacion.total = total_general
-            cotizacion.save()
-            
+                impuesto_iva = base_imponible * Decimal('0.16')
+                total_general = base_imponible + monto_exento + impuesto_iva
+                
+                cotizacion.base_imponible = base_imponible
+                cotizacion.impuesto_iva = impuesto_iva
+                cotizacion.total = total_general
+                cotizacion.save()
+                
             messages.success(request, f'¡Cotización VP-{cotizacion.id} guardada con éxito!')
             return redirect('dashboard')
         else:
@@ -635,12 +643,11 @@ def crear_cotizacion(request):
     else:
         form = CotizacionForm()
         
-    vehiculos_disponibles = Vehiculo.objects.all()
+    vehiculos_disponibles = Vehiculo.objects.filter(estado='Disponible')
     return render(request, 'facturacion/crear_cotizacion.html', {
         'form': form,
         'vehiculos_disponibles': vehiculos_disponibles
     })
-
 
 @login_required
 def eliminar_cotizacion(request, cotizacion_id):
