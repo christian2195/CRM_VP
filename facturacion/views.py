@@ -811,7 +811,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     # --- COLORES INSTITUCIONALES ---
     COLOR_AZUL_MARINO = colors.HexColor('#273376')
     COLOR_GRIS_OSCURO = colors.HexColor('#333333')
-    COLOR_TEXTO_PIE = colors.HexColor('#3B2314') # Tono oscuro formal igual a la referencia
+    COLOR_TEXTO_PIE = colors.HexColor('#3B2314')
 
     # --- 2. FECHA Y ENCABEZADO DEL DOCUMENTO ---
     meses = {
@@ -973,10 +973,9 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
 
     # --- 8. BLOQUE DE PIE DE PÁGINA CON QR E ÍCONOS DE CONTACTO ---
-    # Datos de contacto institucionales que irán tanto impresos como dentro del QR
     tel_fijo = "+58 212 802 8300"
     tel_movil = "+58 412 619 8651"
-    red_social = "@emvepro_ve"
+    red_social = "@somosvenezuelaproductiva"
     web_url = "emvepro.gob.ve"
     dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
     dir_linea2 = "Caracas 1010, Distrito Capital - R.B. Venezuela"
@@ -999,7 +998,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     bounds = qr_widget.getBounds()
     qr_w = bounds[2] - bounds[0]
     qr_h = bounds[3] - bounds[1]
-    size_qr = 52  # Tamaño del QR en puntos
+    size_qr = 52
     
     d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
     d.add(qr_widget)
@@ -1008,7 +1007,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     y_qr = 70
     d.drawOn(p, x_qr, y_qr)
 
-    # Texto debajo del QR ("Dirección Web" / portal institucional)
+    # Texto debajo del QR ("Dirección Web")
     p.setFont("Helvetica-BoldOblique", 6.5)
     p.setFillColor(COLOR_TEXTO_PIE)
     p.drawCentredString(x_qr + (size_qr / 2), y_qr - 7, web_url)
@@ -1036,7 +1035,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.setFont("Helvetica-Bold", 8)
     p.drawString(x_text, y_row2, tel_movil)
 
-    # Fila 3: Instagram / Red Social (Ícono de cámara vectorial)
+    # Fila 3: Instagram (@somosvenezuelaproductiva)
     y_row3 = 86
     p.roundRect(x_icon, y_row3 - 1, 8.2, 8.2, 2, stroke=1, fill=0)
     p.circle(x_icon + 4.1, y_row3 + 3.1, 2, stroke=1, fill=0)
@@ -1044,7 +1043,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.setFont("Helvetica-Oblique", 7.5)
     p.drawString(x_text, y_row3, red_social)
 
-    # Fila 4: Dirección en 2 líneas (Ícono de Pin de ubicación)
+    # Fila 4: Dirección en 2 líneas
     y_row4 = 74
     p.circle(x_icon + 4.1, y_row4 + 1.5, 3.6, stroke=1, fill=0)
     p.circle(x_icon + 4.1, y_row4 + 1.5, 1.2, stroke=0, fill=1)
