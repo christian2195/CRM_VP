@@ -9,7 +9,11 @@ from django.db import transaction
 from django.contrib import messages 
 from django.db.models import Q, Sum, Prefetch
 from django.contrib.auth.decorators import login_required
-
+def fmt_moneda(valor):
+    """Formatea números al estándar venezolano: 10.045.812,00"""
+    if valor is None or valor == '':
+        valor = Decimal('0.00')
+    return f"{Decimal(str(valor)):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
