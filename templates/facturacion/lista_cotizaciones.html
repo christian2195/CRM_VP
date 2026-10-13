@@ -98,8 +98,9 @@
                                             </a>
                                             
                                             {% if cot.estado != 'F' %}
+                                                <!-- Botón Facturar -->
                                                 <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-warning fw-bold text-dark rounded-pill px-3" title="Emitir Factura Fiscal">
-                                                    <i class="fa-solid fa-ban me-1"></i> Anular
+                                                    <i class="fa-solid fa-file-invoice me-1"></i> Facturar
                                                 </a>
                                                 <!-- Botón Anular Cotización -->
                                                 <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Anular Cotización" onclick="return confirm('¿Estás seguro de anular la cotización VP-{{ cot.id }}? Los vehículos apartados volverán a estar disponibles.');">
