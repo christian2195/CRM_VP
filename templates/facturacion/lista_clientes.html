@@ -2,14 +2,22 @@
 
 {% block content %}
 <div class="row mb-4 align-items-center">
-    <div class="col-md-8">
+    <div class="col-md-6">
         <h2 class="fw-bold"><i class="fa-solid fa-users text-primary me-2"></i>Directorio de Clientes</h2>
         <p class="text-muted mb-0">Gestión de personas naturales y jurídicas, con historial de cotizaciones y documentos fiscales.</p>
     </div>
-    <div class="col-md-4 text-end">
-        <a href="{% url 'crear_cliente' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4">
-            <i class="fa-solid fa-plus me-1"></i> Nuevo Cliente
-        </a>
+    <div class="col-md-6">
+        <div class="d-flex justify-content-md-end gap-2 mt-3 mt-md-0">
+            <form method="GET" action="{% url 'lista_clientes' %}" class="d-flex gap-2">
+                <div class="input-group shadow-sm rounded-pill overflow-hidden">
+                    <span class="input-group-text bg-white border-0 ps-3"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
+                    <input type="text" name="q" value="{{ request.GET.q }}" class="form-control border-0" placeholder="Buscar por RIF o Razón Social...">
+                </div>
+            </form>
+            <a href="{% url 'crear_cliente' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4 d-flex align-items-center">
+                <i class="fa-solid fa-plus me-2"></i> Nuevo Cliente
+            </a>
+        </div>
     </div>
 </div>
 
@@ -17,120 +25,45 @@
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light text-uppercase fs-7 text-secondary">
+                <thead class="bg-primary text-white text-uppercase small">
                     <tr>
-                        <th class="ps-4">Identificación (RIF/CI)</th>
-                        <th>Razón Social / Nombre</th>
-                        <th>Teléfono</th>
-                        <th>Dirección</th>
-                        <th class="text-center">Documentos Registrados</th>
+                        <th class="ps-4 py-3">Identificación (RIF/CI)</th>
+                        <th class="py-3">Razón Social / Nombre</th>
+                        <th class="py-3">Teléfono</th>
+                        <th class="py-3">Dirección</th>
+                        <th class="text-center py-3 pe-4">Acciones y Documentos</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for cliente in clientes %}
                     <tr>
-                        <td class="ps-4 fw-bold text-dark">{{ cliente.tipo_documento }}-{{ cliente.identificacion }}</td>
+                        <td class="ps-4 fw-bold text-primary">{{ cliente.tipo_documento }}-{{ cliente.identificacion }}</td>
                         <td>
                             <div class="fw-semibold text-dark">{{ cliente.nombre_razon_social }}</div>
                         </td>
                         <td>{{ cliente.telefono|default:"N/A" }}</td>
-                        <td><small class="text-secondary" title="{{ cliente.direccion }}">{{ cliente.direccion|default:"S/D"|truncatechars:35 }}</small></td>
+                        <td><small class="text-secondary" title="{{ cliente.direccion }}">{{ cliente.direccion|default:"S/D"|truncatechars:40 }}</small></td>
                         <td class="text-center pe-4">
-                            <div class="d-flex justify-content-center gap-2">
+                            <div class="d-flex justify-content-center align-items-center gap-2">
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary-subtle rounded-pill px-3 py-2" title="Cotizaciones registradas">
                                     <i class="fa-solid fa-file-pdf me-1"></i> Cot: {{ cliente.cotizaciones.count }}
                                 </span>
-                                <button class="btn btn-sm btn-light border rounded-circle" style="width: 32px; height: 32px;" data-bs-toggle="modal" data-bs-target="#modalCliente{{ cliente.id }}" title="Ver documentos asociados">
-                                    <i class="fa-solid fa-eye text-primary"></i>
+                                <!-- Botón Ver Historial -->
+                                <button class="btn btn-sm btn-warning rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px;" data-bs-toggle="modal" data-bs-target="#modalCliente{{ cliente.id }}" title="Ver documentos asociados">
+                                    <i class="fa-solid fa-eye"></i>
                                 </button>
+                                <!-- Botón Editar Cliente -->
+                                <a href="{% url 'editar_cliente' cliente.id %}" class="btn btn-sm btn-light border rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px;" title="Editar datos del cliente">
+                                    <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                </a>
                             </div>
                         </td>
                     </tr>
-
-                    <!-- Modal de Documentos Asociados por Cliente -->
-                    <div class="modal fade" id="modalCliente{{ cliente.id }}" tabindex="-1" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered modal-xl">
-                            <div class="modal-content border-0 shadow-lg rounded-4 p-2">
-                                <div class="modal-header border-0 pb-0">
-                                    <div>
-                                        <h5 class="fw-bold mb-0">{{ cliente.nombre_razon_social }}</h5>
-                                        <small class="text-secondary font-monospace">{{ cliente.tipo_documento }}-{{ cliente.identificacion }}</small>
-                                    </div>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body text-start py-4">
-                                    <h6 class="fw-bold text-uppercase text-secondary fs-7 mb-3"><i class="fa-solid fa-folder-open me-2 text-primary"></i>Historial de Cotizaciones, Facturas y Certificados</h6>
-                                    
-                                    <div class="table-responsive">
-                                        <table class="table table-sm align-middle mb-0">
-                                            <thead class="table-light fs-8">
-                                                <tr>
-                                                    <th>Cotización</th>
-                                                    <th>Factura Fiscal</th>
-                                                    <th>Vehículo / Ítem</th>
-                                                    <th class="text-end">Total (Bs.)</th>
-                                                    <th class="text-center">Acciones y Documentos PDF</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for cot in cliente.cotizaciones.all %}
-                                                <tr>
-                                                    <td class="fw-bold text-primary">#VP-{{ cot.id }}</td>
-                                                    <td>
-                                                        {% if cot.factura %}
-                                                            <span class="fw-bold text-success">{{ cot.factura.numero_factura }}</span>
-                                                        {% else %}
-                                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill">Pendiente</span>
-                                                        {% endif %}
-                                                    </td>
-                                                    <td>
-                                                        {% for item in cot.items.all %}
-                                                            <small class="d-block">{{ item.vehiculo.marca|default:"" }} {{ item.vehiculo.modelo|default:item.descripcion }}</small>
-                                                        {% endfor %}
-                                                    </td>
-                                                    <td class="text-end font-monospace small">Bs. {{ cot.total|floatformat:2 }}</td>
-                                                    <td class="text-center">
-                                                        <div class="btn-group shadow-sm rounded-pill overflow-hidden bg-light p-1" role="group">
-                                                            <!-- PDF Cotización -->
-                                                            <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-1" title="Descargar Presupuesto/Cotización PDF">
-                                                                <i class="fa-solid fa-file-pdf text-danger me-1"></i> Cotización
-                                                            </a>
-                                                            
-                                                            {% if cot.factura %}
-                                                                <!-- PDF Factura Estándar -->
-                                                                <a href="{% url 'imprimir_factura' cot.factura.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-1" title="Descargar Factura Estándar PDF">
-                                                                    <i class="fa-solid fa-print text-primary me-1"></i> Factura
-                                                                </a>
-                                                                <!-- PDF Certificado de Origen -->
-                                                                <a href="{% url 'imprimir_certificado' cot.factura.id %}" target="_blank" class="btn btn-sm btn-white rounded-pill px-2 py-1" title="Descargar Certificado de Origen PDF">
-                                                                    <i class="fa-solid fa-certificate text-success me-1"></i> Certificado
-                                                                </a>
-                                                            {% endif %}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {% empty %}
-                                                <tr>
-                                                    <td colspan="5" class="text-center py-4 text-secondary">
-                                                        Este cliente no registra cotizaciones ni documentos asociados.
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                <div class="modal-footer border-0 pt-0">
-                                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     {% empty %}
                     <tr>
                         <td colspan="5" class="text-center py-5 text-secondary">
                             <i class="fa-solid fa-folder-open fs-2 mb-2 d-block text-black-50 opacity-50"></i>
-                            No hay clientes registrados en la base de datos.
+                            No se encontraron clientes registrados.
                         </td>
                     </tr>
                     {% endfor %}
@@ -139,4 +72,101 @@
         </div>
     </div>
 </div>
+
+<!-- Modales de Documentos Asociados por Cliente -->
+{% for cliente in clientes %}
+<div class="modal fade" id="modalCliente{{ cliente.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow-lg rounded-4 p-2">
+            <div class="modal-header border-bottom pb-3">
+                <div>
+                    <h5 class="fw-bold text-primary mb-0">{{ cliente.nombre_razon_social }}</h5>
+                    <small class="text-secondary fw-semibold">{{ cliente.tipo_documento }}-{{ cliente.identificacion }} | Tel: {{ cliente.telefono|default:"N/A" }}</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'editar_cliente' cliente.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="fa-solid fa-pen-to-square me-1"></i> Editar Cliente
+                    </a>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="modal-body text-start py-4">
+                <h6 class="fw-bold text-uppercase text-secondary small mb-3">
+                    <i class="fa-solid fa-folder-open me-2 text-primary"></i>Historial de Cotizaciones, Facturas y Certificados
+                </h6>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th class="py-2 ps-2">Cotización</th>
+                                <th class="py-2">Factura Fiscal</th>
+                                <th class="py-2">Vehículo / Ítem</th>
+                                <th class="text-end py-2">Monto Cotizado ($)</th>
+                                <th class="text-center py-2">Acciones y Documentos PDF</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cot in cliente.cotizaciones.all %}
+                            <tr>
+                                <td class="fw-bold text-primary ps-2">VP-{{ cot.id }}</td>
+                                <td>
+                                    {% if cot.factura %}
+                                        {% if cot.factura.estado_pago == 'ANULADA' %}
+                                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill">
+                                                {{ cot.factura.numero_factura }} (Anulada)
+                                            </span>
+                                        {% else %}
+                                            <span class="fw-bold text-success">
+                                                <i class="fa-solid fa-check-circle me-1"></i>{{ cot.factura.numero_factura }}
+                                            </span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% for item in cot.items.all %}
+                                        <small class="d-block text-secondary">
+                                            • {{ item.vehiculo.marca|default:"" }} {{ item.vehiculo.modelo|default:item.descripcion }}
+                                            {% if item.vehiculo.placa %}<span class="fw-semibold text-dark">[{{ item.vehiculo.placa }}]</span>{% endif %}
+                                        </small>
+                                    {% endfor %}
+                                </td>
+                                <td class="text-end fw-semibold small">$ {{ cot.total|floatformat:2 }}</td>
+                                <td class="text-center">
+                                    <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                        <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Descargar Presupuesto PDF">
+                                            <i class="fa-solid fa-file-pdf me-1"></i> Presupuesto
+                                        </a>
+                                        
+                                        {% if cot.factura and cot.factura.estado_pago != 'ANULADA' %}
+                                            <a href="{% url 'imprimir_factura' cot.factura.id %}" target="_blank" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Descargar Factura PDF">
+                                                <i class="fa-solid fa-print me-1"></i> Factura
+                                            </a>
+                                            <a href="{% url 'imprimir_certificado' cot.factura.id %}" target="_blank" class="btn btn-sm btn-outline-success rounded-pill px-3" title="Descargar Certificado de Origen PDF">
+                                                <i class="fa-solid fa-certificate me-1"></i> Certificado
+                                            </a>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-secondary">
+                                    Este cliente no registra cotizaciones ni documentos asociados.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
