@@ -1002,7 +1002,6 @@ def generar_factura(request, cotizacion_id):
     }
     return render(request, 'facturacion/generar_factura.html', context)
 
-
 @login_required
 def exportar_inventario_excel(request):
     wb = openpyxl.Workbook()
