@@ -1,23 +1,24 @@
+import os
 import openpyxl
-from reportlab.platypus import Table, TableStyle
-from reportlab.lib import colors
+from decimal import Decimal
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.db import transaction
 from django.contrib import messages 
-from django.db.models import Q
+from django.db.models import Q, Sum, Prefetch
+from django.contrib.auth.decorators import login_required
+
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-from django.db.models import Sum, Prefetch
-from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
-from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
-from decimal import Decimal
 from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 
-# --- IMPORTACIÓN DE SEGURIDAD ---
-from django.contrib.auth.decorators import login_required
+from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
+from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
 
 @login_required
 def imprimir_factura_institucional(request, factura_id):
