@@ -81,6 +81,9 @@ class Cotizacion(models.Model):
     observaciones = models.TextField(blank=True, null=True)
     
     # Desglose de totales contables actualizados
+    porcentaje_descuento = models.DecimalField(max_digits=5, decimal_places=2, default=0.00, verbose_name="Descuento (%)")
+    monto_descuento = models.DecimalField(max_digits=20, decimal_places=2, default=0.00)
+    coletillas = models.TextField(blank=True, null=True, verbose_name="Condiciones y Notas")
     monto_exento = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     base_imponible = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     impuesto_iva = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
