@@ -850,8 +850,8 @@ def crear_cotizacion(request):
                 vehiculos = request.POST.getlist('item_vehiculo[]')
                 ivas = request.POST.getlist('item_iva[]')
                 
-                base_imponible = Decimal('0.00')
-                monto_exento = Decimal('0.00')
+                subtotal_base = Decimal('0.00')
+                subtotal_exento = Decimal('0.00')
                 
                 for i in range(len(descriptions)):
                     if not descriptions[i].strip():
@@ -867,9 +867,9 @@ def crear_cotizacion(request):
                     
                     subtotal_linea = cant * precio
                     if aplica_iva:
-                        base_imponible += subtotal_linea
+                        subtotal_base += subtotal_linea
                     else:
-                        monto_exento += subtotal_linea
+                        subtotal_exento += subtotal_linea
                     
                     ItemCotizacion.objects.create(
                         cotizacion=cotizacion,
@@ -879,6 +879,15 @@ def crear_cotizacion(request):
                         precio_unitario=precio,
                         aplica_iva=aplica_iva
                     )
+                
+                # --- CÁLCULO DE DESCUENTOS E IVA ---
+                porc_desc = cotizacion.porcentaje_descuento or Decimal('0.00')
+                desc_base = subtotal_base * (porc_desc / Decimal('100.00'))
+                desc_exento = subtotal_exento * (porc_desc / Decimal('100.00'))
+                
+                cotizacion.monto_descuento = desc_base + desc_exento
+                base_imponible = subtotal_base - desc_base
+                monto_exento = subtotal_exento - desc_exento
                 
                 impuesto_iva = base_imponible * Decimal('0.16')
                 total_general = base_imponible + monto_exento + impuesto_iva
@@ -893,13 +902,278 @@ def crear_cotizacion(request):
         else:
             messages.error(request, 'Por favor verifique los datos generales de la cotización.')
     else:
-        form = CotizacionForm()
+        # Texto legal por defecto
+        texto_default = "1. PRECIOS EXPRESADOS EN INCOTERM DAP (DELIVERY AT PLACE), incluye transporte y despacho hasta puerto destino.\n2. PAGO INICIAL del 50% contra la cantidad de vehículos contenidos en cada Bill of Lading (BL).\n3. PAGO DEL 50% RESTANTE según la cantidad parcial entregada en cada BL contra DAP.\n4. GARANTÍA LIMITADA de un (1) año o 50.000 KM."
+        form = CotizacionForm(initial={'coletillas': texto_default})
         
     vehiculos_disponibles = Vehiculo.objects.filter(estado='Disponible')
     return render(request, 'facturacion/crear_cotizacion.html', {
         'form': form,
         'vehiculos_disponibles': vehiculos_disponibles
     })
+
+@login_required
+def imprimir_cotizacion(request, cotizacion_id):
+    # (Mantén el código de tu imprimir_cotizacion original de la línea 1 a la definición de "TABLA DE ÍTEMS")
+    # ... (Tu código actual de fondo, encabezado y tabla) ...
+    
+    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
+    cliente = cotizacion.cliente
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Presupuesto_VP-{cotizacion.id}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    
+    # --- DIBUJAR LA PLANTILLA DE FONDO ---
+    ruta_fondo = os.path.join(settings.BASE_DIR, 'static', 'img', 'Plantilla_Hoja_Membretada2.png')
+    if os.path.exists(ruta_fondo):
+        p.drawImage(ruta_fondo, 0, 0, width=width, height=height, mask='auto')
+
+    COLOR_AZUL_MARINO = colors.HexColor('#273376')
+    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_TEXTO_PIE = colors.HexColor('#3B2314')
+
+    # --- FECHA ---
+    meses = {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'}
+    f = cotizacion.fecha_creacion
+    fecha_str = f"Caracas, {f.day} de {meses.get(f.month, '')} de {f.year}" if f else "Caracas"
+
+    p.setFont("Helvetica-Bold", 9)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(width - 55, height - 135, fecha_str)
+
+    # --- DATOS DEL CLIENTE ---
+    y_pos = height - 165
+    p.setFont("Helvetica-Bold", 12)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(55, y_pos, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
+
+    y_pos -= 22
+    p.setFont("Helvetica-Bold", 8.5)
+    p.drawString(55, y_pos, "DATOS DEL CLIENTE:")
+    
+    y_pos -= 15
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(55, y_pos, "Razón Social:")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawString(118, y_pos, f"{str(cliente.nombre_razon_social or '')[:42]}")
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(340, y_pos, "Teléfono:")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawString(385, y_pos, f"{str(cliente.telefono or 'N/A')}")
+    
+    y_pos -= 14
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(55, y_pos, "C.I. / R.I.F.:")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawString(118, y_pos, f"{str(cliente.tipo_documento or '')}-{str(cliente.identificacion or '')}")
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(340, y_pos, "Dirección:")
+    p.setFont("Helvetica", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawString(385, y_pos, f"{str(cliente.direccion or 'N/A')[:35]}")
+
+    # --- TABLA DE ÍTEMS ---
+    y_pos -= 28
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.rect(55, y_pos - 4, width - 110, 18, fill=1, stroke=0)
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(colors.white)
+    p.drawString(60, y_pos, "ITEM")
+    p.drawString(95, y_pos, "PRODUCTO / DESCRIPCIÓN")
+    p.drawRightString(395, y_pos, "PRECIO UNIT. ($)")
+    p.drawCentredString(445, y_pos, "CANT.")
+    p.drawRightString(width - 60, y_pos, "SUBTOTAL ($)")
+
+    y_pos -= 18
+    p.setFont("Helvetica", 8.5)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    
+    cantidad_total_items = 0
+    subtotal_bruto = Decimal('0.00')
+    
+    for index, item in enumerate(cotizacion.items.all(), start=1):
+        cant = item.cantidad or 0
+        precio = item.precio_unitario or Decimal('0.00')
+        subtotal_item = cant * precio
+        cantidad_total_items += cant
+        subtotal_bruto += subtotal_item
+        
+        desc = str(item.descripcion or '')
+        if item.vehiculo:
+            desc += f" - {item.vehiculo.marca} {item.vehiculo.modelo} [{item.vehiculo.placa or 'S/P'}]"
+            
+        p.drawString(60, y_pos, str(index))
+        p.drawString(95, y_pos, desc[:48])
+        p.drawRightString(395, y_pos, fmt_moneda(precio))
+        p.drawCentredString(445, y_pos, str(cant))
+        p.drawRightString(width - 60, y_pos, fmt_moneda(subtotal_item))
+        y_pos -= 16
+
+    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setLineWidth(0.8)
+    p.line(320, y_pos + 6, width - 55, y_pos + 6)
+
+    # --- TOTALES Y DESCUENTOS ---
+    y_pos -= 8
+    p.setFont("Helvetica-Bold", 8.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(330, y_pos, "CANTIDAD TOTAL:")
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(width - 60, y_pos, str(cantidad_total_items))
+    
+    y_pos -= 14
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(330, y_pos, "SUBTOTAL:")
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(width - 60, y_pos, fmt_moneda(subtotal_bruto))
+    
+    # Imprimir descuento solo si existe
+    if getattr(cotizacion, 'monto_descuento', 0) > 0:
+        y_pos -= 14
+        p.setFillColor(COLOR_AZUL_MARINO)
+        p.drawString(330, y_pos, f"DESCUENTO ({cotizacion.porcentaje_descuento}%):")
+        p.setFillColor(COLOR_GRIS_OSCURO)
+        p.drawRightString(width - 60, y_pos, f"- {fmt_moneda(cotizacion.monto_descuento)}")
+    
+    y_pos -= 14
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(330, y_pos, "BASE IMPONIBLE (GRAVABLE):")
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.base_imponible))
+    
+    y_pos -= 14
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(330, y_pos, "IVA (16%):")
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.impuesto_iva))
+    
+    y_pos -= 15
+    p.setFont("Helvetica-Bold", 9.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(330, y_pos, "TOTAL GENERAL ($):")
+    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.total))
+
+    # --- CONDICIONES DINÁMICAS ---
+    y_pos -= 28
+    p.setFont("Helvetica-Bold", 7.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(55, y_pos, "CONSIDERACIONES Y CONDICIONES:")
+    p.setFont("Helvetica", 6.5)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    
+    y_col = y_pos - 10
+    if getattr(cotizacion, 'coletillas', None):
+        for linea in str(cotizacion.coletillas).split('\n'):
+            p.drawString(55, y_col, linea.strip())
+            y_col -= 8
+    else:
+        p.drawString(55, y_col, "Condiciones estándar no especificadas.")
+        
+    p.setFont("Helvetica-Bold", 6.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawString(55, y_col - 12, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
+    p.drawString(55, y_col - 20, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
+
+    # --- FIRMAS Y CÓDIGO QR ---
+    # (Pega el mismo bloque de firmas y QR de tu versión anterior, que está perfecto)
+    y_firmas = 190
+    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setLineWidth(0.6)
+    p.line(85, y_firmas, 245, y_firmas)
+    p.line(365, y_firmas, 525, y_firmas)
+
+    p.setFont("Helvetica-Bold", 7.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawCentredString(165, y_firmas + 6, "REVISADO POR:")
+    p.drawCentredString(445, y_firmas + 6, "AUTORIZADO POR:")
+    
+    p.setFont("Helvetica-Bold", 8)
+    p.setFillColor(COLOR_GRIS_OSCURO)
+    p.drawCentredString(165, y_firmas - 12, "Mercedes Varela")
+    p.drawCentredString(445, y_firmas - 12, "Jose Holberg Zambrano Gonzalez")
+    
+    p.setFont("Helvetica", 7)
+    p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
+    p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
+
+    # BLOQUE QR
+    tel_fijo = "+58 212 802 8300"
+    tel_movil = "+58 412 619 8651"
+    red_social = "@somosvenezuelaproductiva"
+    web_url = "emvepro.gob.ve"
+    dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
+    dir_linea2 = "Caracas 1010, Distrito Capital - R.B. Venezuela"
+
+    qr_texto = (f"EMVEPRO C.A. | RIF: G-20010522-4\nPresupuesto: VP-{cotizacion.id}\nCliente: {cliente.nombre_razon_social}\nTotal: ${fmt_moneda(cotizacion.total)}")
+    qr_widget = qr.QrCodeWidget(qr_texto)
+    qr_widget.barLevel = 'M'
+    qr_widget.barFillColor = COLOR_TEXTO_PIE
+    bounds = qr_widget.getBounds()
+    qr_w = bounds[2] - bounds[0]
+    qr_h = bounds[3] - bounds[1]
+    size_qr = 52
+    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
+    d.add(qr_widget)
+    x_qr = 68
+    y_qr = 70
+    d.drawOn(p, x_qr, y_qr)
+
+    p.setFont("Helvetica-BoldOblique", 6.5)
+    p.setFillColor(COLOR_TEXTO_PIE)
+    p.drawCentredString(x_qr + (size_qr / 2), y_qr - 7, web_url)
+
+    x_icon = 142
+    x_text = 158
+    p.setStrokeColor(COLOR_TEXTO_PIE)
+    p.setFillColor(COLOR_TEXTO_PIE)
+    p.setLineWidth(0.8)
+
+    y_row1 = 112
+    p.circle(x_icon + 4, y_row1 + 2.5, 4.2, stroke=1, fill=0)
+    p.setFont("Helvetica-Bold", 5.5)
+    p.drawCentredString(x_icon + 4, y_row1 + 0.5, "T")
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(x_text, y_row1, tel_fijo)
+
+    y_row2 = 99
+    p.circle(x_icon + 4, y_row2 + 2.5, 4.2, stroke=1, fill=0)
+    p.setFont("Helvetica-Bold", 5)
+    p.drawCentredString(x_icon + 4, y_row2 + 0.5, "W")
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(x_text, y_row2, tel_movil)
+
+    y_row3 = 86
+    p.roundRect(x_icon, y_row3 - 1, 8.2, 8.2, 2, stroke=1, fill=0)
+    p.circle(x_icon + 4.1, y_row3 + 3.1, 2, stroke=1, fill=0)
+    p.circle(x_icon + 6.5, y_row3 + 5.5, 0.4, stroke=0, fill=1)
+    p.setFont("Helvetica-Oblique", 7.5)
+    p.drawString(x_text, y_row3, red_social)
+
+    y_row4 = 74
+    p.circle(x_icon + 4.1, y_row4 + 1.5, 3.6, stroke=1, fill=0)
+    p.circle(x_icon + 4.1, y_row4 + 1.5, 1.2, stroke=0, fill=1)
+    p.line(x_icon + 1.2, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
+    p.line(x_icon + 7.0, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
+    
+    p.setFont("Helvetica-Oblique", 6.5)
+    p.drawString(x_text, y_row4, dir_linea1)
+    p.drawString(x_text, y_row4 - 8, dir_linea2)
+
+    p.showPage()
+    p.save()
+    return response
 
 @login_required
 def eliminar_cotizacion(request, cotizacion_id):
@@ -1240,274 +1514,6 @@ def editar_vehiculo(request, vehiculo_id):
         form = VehiculoForm(instance=vehiculo)
         
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
-
-
-@login_required
-def imprimir_cotizacion(request, cotizacion_id):
-    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
-    cliente = cotizacion.cliente
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="Presupuesto_VP-{cotizacion.id}.pdf"'
-
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    
-    # --- 1. DIBUJAR LA PLANTILLA DE FONDO ---
-    ruta_fondo = os.path.join(settings.BASE_DIR, 'static', 'img', 'Plantilla_Hoja_Membretada2.png')
-    if os.path.exists(ruta_fondo):
-        p.drawImage(ruta_fondo, 0, 0, width=width, height=height, mask='auto')
-
-    # --- COLORES INSTITUCIONALES ---
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
-    COLOR_TEXTO_PIE = colors.HexColor('#3B2314')
-
-    # --- 2. FECHA Y ENCABEZADO DEL DOCUMENTO ---
-    meses = {
-        1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
-        7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
-    }
-    if cotizacion.fecha_creacion:
-        f = cotizacion.fecha_creacion
-        fecha_str = f"Caracas, {f.day} de {meses.get(f.month, '')} de {f.year}"
-    else:
-        fecha_str = "Caracas"
-
-    p.setFont("Helvetica-Bold", 9)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 55, height - 135, fecha_str)
-
-    # --- 3. TÍTULO Y DATOS DEL CLIENTE ---
-    y_pos = height - 165
-    p.setFont("Helvetica-Bold", 12)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(55, y_pos, f"PRESUPUESTO / COTIZACIÓN N°: VP-{cotizacion.id}")
-
-    y_pos -= 22
-    p.setFont("Helvetica-Bold", 8.5)
-    p.drawString(55, y_pos, "DATOS DEL CLIENTE:")
-    
-    y_pos -= 15
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(55, y_pos, "Razón Social:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(118, y_pos, f"{str(cliente.nombre_razon_social or '')[:42]}")
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(340, y_pos, "Teléfono:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(385, y_pos, f"{str(cliente.telefono or 'N/A')}")
-    
-    y_pos -= 14
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(55, y_pos, "C.I. / R.I.F.:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(118, y_pos, f"{str(cliente.tipo_documento or '')}-{str(cliente.identificacion or '')}")
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(340, y_pos, "Dirección:")
-    p.setFont("Helvetica", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    dir_cliente = str(cliente.direccion or 'N/A')
-    p.drawString(385, y_pos, f"{dir_cliente[:35]}")
-
-    # --- 4. TABLA DE ÍTEMS ---
-    y_pos -= 28
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.rect(55, y_pos - 4, width - 110, 18, fill=1, stroke=0)
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(colors.white)
-    p.drawString(60, y_pos, "ITEM")
-    p.drawString(95, y_pos, "PRODUCTO / DESCRIPCIÓN")
-    p.drawRightString(395, y_pos, "PRECIO UNIT. ($)")
-    p.drawCentredString(445, y_pos, "CANT.")
-    p.drawRightString(width - 60, y_pos, "SUBTOTAL ($)")
-
-    y_pos -= 18
-    p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    
-    cantidad_total_items = 0
-    for index, item in enumerate(cotizacion.items.all(), start=1):
-        cant = item.cantidad or 0
-        precio = item.precio_unitario or Decimal('0.00')
-        subtotal_item = cant * precio
-        cantidad_total_items += cant
-        
-        desc = str(item.descripcion or '')
-        if item.vehiculo:
-            desc += f" - {item.vehiculo.marca} {item.vehiculo.modelo} [{item.vehiculo.placa or 'S/P'}]"
-            
-        p.drawString(60, y_pos, str(index))
-        p.drawString(95, y_pos, desc[:48])
-        p.drawRightString(395, y_pos, fmt_moneda(precio))
-        p.drawCentredString(445, y_pos, str(cant))
-        p.drawRightString(width - 60, y_pos, fmt_moneda(subtotal_item))
-        y_pos -= 16
-
-    p.setStrokeColor(COLOR_AZUL_MARINO)
-    p.setLineWidth(0.8)
-    p.line(320, y_pos + 6, width - 55, y_pos + 6)
-
-    # --- 5. TOTALES ---
-    y_pos -= 8
-    p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(330, y_pos, "CANTIDAD TOTAL:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 60, y_pos, str(cantidad_total_items))
-    
-    y_pos -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(330, y_pos, "BASE IMPONIBLE:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.base_imponible))
-    
-    y_pos -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(330, y_pos, "IVA (16%):")
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.impuesto_iva))
-    
-    y_pos -= 15
-    p.setFont("Helvetica-Bold", 9.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(330, y_pos, "TOTAL GENERAL ($):")
-    p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.total))
-
-    # --- 6. CONDICIONES Y CONSIDERACIONES ---
-    y_pos -= 28
-    p.setFont("Helvetica-Bold", 7.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(55, y_pos, "CONSIDERACIONES PARA LA VENTA:")
-    p.setFont("Helvetica", 6.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawString(55, y_pos - 10, "1. PRECIOS EXPRESADOS EN INCOTERM DAP (DELIVERY AT PLACE), incluye transporte y despacho hasta puerto destino.")
-    p.drawString(55, y_pos - 18, "2. PAGO INICIAL del 50% contra la cantidad de vehículos contenidos en cada Bill of Lading (BL).")
-    p.drawString(55, y_pos - 26, "3. PAGO DEL 50% RESTANTE según la cantidad parcial entregada en cada BL contra DAP.")
-    p.drawString(55, y_pos - 34, "4. GARANTÍA LIMITADA de un (1) año o 50.000 KM. Gestión ante División Vehicular Emvepro: (0412-6198651).")
-    
-    p.setFont("Helvetica-Bold", 6.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawString(55, y_pos - 46, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
-    p.drawString(55, y_pos - 54, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
-
-    # --- 7. FIRMAS ---
-    y_firmas = 190
-    p.setStrokeColor(COLOR_AZUL_MARINO)
-    p.setLineWidth(0.6)
-    p.line(85, y_firmas, 245, y_firmas)
-    p.line(365, y_firmas, 525, y_firmas)
-
-    p.setFont("Helvetica-Bold", 7.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawCentredString(165, y_firmas + 6, "REVISADO POR:")
-    p.drawCentredString(445, y_firmas + 6, "AUTORIZADO POR:")
-    
-    p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawCentredString(165, y_firmas - 12, "Mercedes Varela")
-    p.drawCentredString(445, y_firmas - 12, "Jose Holberg Zambrano Gonzalez")
-    
-    p.setFont("Helvetica", 7)
-    p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
-    p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
-
-    # --- 8. BLOQUE DE PIE DE PÁGINA CON QR E ÍCONOS DE CONTACTO ---
-    tel_fijo = "+58 212 802 8300"
-    tel_movil = "+58 412 619 8651"
-    red_social = "@somosvenezuelaproductiva"
-    web_url = "emvepro.gob.ve"
-    dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
-    dir_linea2 = "Caracas 1010, Distrito Capital - R.B. Venezuela"
-
-    qr_texto = (
-        f"EMVEPRO C.A. | RIF: G-20010522-4\n"
-        f"Presupuesto: VP-{cotizacion.id}\n"
-        f"Cliente: {cliente.nombre_razon_social}\n"
-        f"Total: ${fmt_moneda(cotizacion.total)}\n"
-        f"Tel: {tel_fijo} / {tel_movil}\n"
-        f"IG: {red_social}\n"
-        f"Web: {web_url}\n"
-        f"Dirección: {dir_linea1}, {dir_linea2}"
-    )
-
-    # 8.1 Generar y dibujar el Código QR a la izquierda
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    qr_widget.barFillColor = COLOR_TEXTO_PIE
-    bounds = qr_widget.getBounds()
-    qr_w = bounds[2] - bounds[0]
-    qr_h = bounds[3] - bounds[1]
-    size_qr = 52
-    
-    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
-    d.add(qr_widget)
-    
-    x_qr = 68
-    y_qr = 70
-    d.drawOn(p, x_qr, y_qr)
-
-    # Texto debajo del QR ("Dirección Web")
-    p.setFont("Helvetica-BoldOblique", 6.5)
-    p.setFillColor(COLOR_TEXTO_PIE)
-    p.drawCentredString(x_qr + (size_qr / 2), y_qr - 7, web_url)
-
-    # 8.2 Columna de Íconos y Datos de Contacto a la derecha del QR
-    x_icon = 142
-    x_text = 158
-    p.setStrokeColor(COLOR_TEXTO_PIE)
-    p.setFillColor(COLOR_TEXTO_PIE)
-    p.setLineWidth(0.8)
-
-    # Fila 1: Teléfono fijo
-    y_row1 = 112
-    p.circle(x_icon + 4, y_row1 + 2.5, 4.2, stroke=1, fill=0)
-    p.setFont("Helvetica-Bold", 5.5)
-    p.drawCentredString(x_icon + 4, y_row1 + 0.5, "T")
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(x_text, y_row1, tel_fijo)
-
-    # Fila 2: WhatsApp / Telegram
-    y_row2 = 99
-    p.circle(x_icon + 4, y_row2 + 2.5, 4.2, stroke=1, fill=0)
-    p.setFont("Helvetica-Bold", 5)
-    p.drawCentredString(x_icon + 4, y_row2 + 0.5, "W")
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(x_text, y_row2, tel_movil)
-
-    # Fila 3: Instagram (@somosvenezuelaproductiva)
-    y_row3 = 86
-    p.roundRect(x_icon, y_row3 - 1, 8.2, 8.2, 2, stroke=1, fill=0)
-    p.circle(x_icon + 4.1, y_row3 + 3.1, 2, stroke=1, fill=0)
-    p.circle(x_icon + 6.5, y_row3 + 5.5, 0.4, stroke=0, fill=1)
-    p.setFont("Helvetica-Oblique", 7.5)
-    p.drawString(x_text, y_row3, red_social)
-
-    # Fila 4: Dirección en 2 líneas
-    y_row4 = 74
-    p.circle(x_icon + 4.1, y_row4 + 1.5, 3.6, stroke=1, fill=0)
-    p.circle(x_icon + 4.1, y_row4 + 1.5, 1.2, stroke=0, fill=1)
-    p.line(x_icon + 1.2, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
-    p.line(x_icon + 7.0, y_row4 - 0.5, x_icon + 4.1, y_row4 - 5)
-    
-    p.setFont("Helvetica-Oblique", 6.5)
-    p.drawString(x_text, y_row4, dir_linea1)
-    p.drawString(x_text, y_row4 - 8, dir_linea2)
-
-    p.showPage()
-    p.save()
-    return response
-
 
 @login_required
 def estado_financiero(request):
