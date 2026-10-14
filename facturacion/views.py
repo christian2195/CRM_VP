@@ -419,6 +419,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
     
+    # Cotizaciones sí llevan hoja membretada
     ruta_fondo = os.path.join(settings.BASE_DIR, 'static', 'img', 'Plantilla_Hoja_Membretada2.png')
     if os.path.exists(ruta_fondo):
         p.drawImage(ruta_fondo, 0, 0, width=width, height=height, mask='auto')
@@ -572,7 +573,6 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(55, y_col - 12, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
     p.drawString(55, y_col - 20, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
 
-    # FIRMAS
     y_firmas = 190
     p.setStrokeColor(COLOR_AZUL_MARINO)
     p.setLineWidth(0.6)
@@ -593,7 +593,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
     p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
 
-    # QR Y CONTACTO
+    # Cotizaciones sí llevan QR
     tel_fijo = "+58 212 802 8300"
     tel_movil = "+58 412 619 8651"
     red_social = "@somosvenezuelaproductiva"
@@ -818,79 +818,8 @@ def actualizar_pago_factura(request, factura_id):
         return redirect('historial_facturas')
     return redirect('estado_financiero')
 
-@login_required
-def historial_facturas(request):
-    query = request.GET.get('q')
-    facturas = Factura.objects.select_related('cotizacion__cliente').all()
-    
-    if query:
-        facturas = facturas.filter(
-            Q(numero_factura__icontains=query) |
-            Q(numero_control__icontains=query) |
-            Q(cotizacion__cliente__nombre_razon_social__icontains=query) |
-            Q(cotizacion__cliente__identificacion__icontains=query)
-        )
-        
-    facturas = facturas.order_by('-fecha_emision', '-numero_factura')
-    return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas})
-
-@login_required
-def exportar_facturas_excel(request):
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename="CONSOLIDADO_SERIE_A_FACTURACION.xlsx"'
-
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Consolidado Serie A"
-
-    headers = [
-        'Fecha Factura', 'Nro Factura', 'Nro Control', 'Estatus de Pago', 'Cliente', 
-        'Cedula/Rif', 'Dirección', 'Telefonos', 'Descripción', 
-        'Base Imponible', 'IVA 16%', 'EXENTO (E.)', 'Total General', 
-        'Marca', 'Modelo', 'Color', 'Placa', 'Año', 'Clase', 'Tipo', 'Uso',
-        'Serial Motor', 'Serial Carrocería NIV', 'Emitido Por'
-    ]
-    
-    ws.append(headers)
-    for col in range(1, len(headers) + 1):
-        cell = ws.cell(row=1, column=col)
-        cell.font = openpyxl.styles.Font(bold=True)
-        cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
-
-    facturas = Factura.objects.select_related('cotizacion__cliente', 'usuario').prefetch_related('cotizacion__items__vehiculo').order_by('numero_factura')
-    
-    diccionario_estados = {
-        'PENDIENTE': 'Por Pagar',
-        'PARCIAL': 'Pago Parcial',
-        'PAGADA': 'Pagada',
-        'ANULADA': 'Anulada'
-    }
-    
-    for f in facturas:
-        cliente = f.cotizacion.cliente
-        item = f.cotizacion.items.first()
-        v = item.vehiculo if item else None
-        
-        estatus_texto = diccionario_estados.get(getattr(f, 'estado_pago', 'PENDIENTE'), 'Por Pagar')
-        nombre_usuario = f.usuario.username.title() if f.usuario else 'N/A'
-        
-        ws.append([
-            f.fecha_emision.strftime('%d/%m/%Y'), f.numero_factura, getattr(f, 'numero_control', 'N/A'), estatus_texto, 
-            cliente.nombre_razon_social, f"{cliente.tipo_documento}-{cliente.identificacion}", 
-            cliente.direccion, cliente.telefono, item.descripcion if item else '',
-             fmt_moneda(f.base_imponible), fmt_moneda(f.impuesto_iva), fmt_moneda(f.monto_exento), fmt_moneda(f.total),
-            v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
-            v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
-            v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
-            nombre_usuario
-        ])
-
-    wb.save(response)
-    return response
-
-
 # ==========================================
-# IMPRESIONES PDF - FACTURAS BOLÍVARES
+# IMPRESIONES PDF - FACTURAS BOLÍVARES (BLANCO Y NEGRO, SIN FONDO, SIN QR)
 # ==========================================
 
 @login_required
@@ -903,7 +832,10 @@ def imprimir_factura_forma_libre(request, factura_id):
     response['Content-Disposition'] = f'inline; filename="Factura_{factura.numero_factura}.pdf"'
 
     p = canvas.Canvas(response, pagesize=letter)
+    COLOR_NEGRO = colors.black
+
     p.setFont("Helvetica-Bold", 9)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 620, "FACTURA N°:")
     p.drawString(400, 600, "FECHA DE EMISIÓN:")
     p.setFont("Helvetica", 9)
@@ -922,6 +854,7 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.drawString(150, 455, str(cliente.telefono or ''))
     
     y_line1 = 435
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1.5)
     p.line(40, y_line1, 560, y_line1)
     p.setFont("Helvetica-Bold", 8)
@@ -945,7 +878,8 @@ def imprimir_factura_forma_libre(request, factura_id):
         alic_porcentaje = "16,00%" if item.aplica_iva else "0,00%"
         subtotal_item = (item.cantidad * item.precio_unitario) * factor_bs
         p.drawString(75, y_items, str(item.cantidad))
-        p.drawString(130, y_items, item.descripcion[:35])
+        # Ajustado a 30 caracteres para que no se superponga con TIPO DE IVA
+        p.drawString(130, y_items, item.descripcion[:30]) 
         p.drawString(280, y_items, tipo_iva)
         p.drawString(390, y_items, alic_porcentaje)
         p.drawRightString(550, y_items, fmt_moneda(subtotal_item))
@@ -1043,13 +977,6 @@ def imprimir_factura_forma_libre(request, factura_id):
     p.drawRightString(440, y_tot, "TOTAL GENERAL")
     p.drawRightString(550, y_tot, fmt_moneda(factura.total))
 
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: Bs. {fmt_moneda(factura.total)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    d = Drawing(45, 45, transform=[45 / qr_widget.getBounds()[2], 0, 0, 45 / qr_widget.getBounds()[3], 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 40, 50)
-
     p.showPage()
     p.save()
     return response
@@ -1065,38 +992,34 @@ def imprimir_factura_institucional(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_NEGRO = colors.black
 
     p.setFont("Helvetica-Bold", 10)
-    p.setFillColor(COLOR_AZUL_MARINO)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 630, "FACTURA N°:")
     p.drawString(400, 610, "N° DE CONTROL:")
     p.drawString(400, 590, "FECHA DE EMISIÓN:")
     
     p.setFont("Helvetica", 10)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(550, 630, str(factura.numero_factura))
     p.drawRightString(550, 610, str(factura.numero_control))
     p.drawRightString(550, 590, factura.fecha_emision.strftime('%d/%m/%Y'))
     
     p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(46, 540, "RAZÓN SOCIAL:")
     p.drawString(46, 495, "C.I. / R.I.F.:")
     p.drawString(46, 475, "DIRECCIÓN:")
     p.drawString(330, 495, "TELÉFONO:")
     
     p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawString(130, 540, str(cliente.nombre_razon_social))
     p.drawString(130, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(130, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(390, 495, str(cliente.telefono or 'N/A'))
     
+    # --- CUADRO DETALLADO (CON SAP EN Bs) ---
     data = [['CANT', 'CÓD. SAP', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', 'PRECIO']]
-    col_widths = [20, 35, 65, 40, 40, 35, 20, 30, 55, 85, 35, 60] 
+    col_widths = [20, 35, 75, 40, 40, 35, 20, 25, 55, 80, 35, 60] 
     
     factor_bs = obtener_factor_bs(factura, cotizacion)
     for item in cotizacion.items.all():
@@ -1105,22 +1028,22 @@ def imprimir_factura_institucional(request, factura_id):
         data.append([
             str(item.cantidad),
             "1124626", 
-            item.descripcion[:15],
-            v.marca[:8] if v else '',
-            v.modelo[:8] if v else '',
+            item.descripcion[:22],
+            v.marca[:10] if v else '',
+            v.modelo[:10] if v else '',
             v.placa if v else 'S/P',
             str(v.anio) if v else '',
             v.color[:7] if v else '',
-            v.serial_motor[:12] if v else '',
-            v.serial_carroceria_niv[:16] if v else '',
+            v.serial_motor[:15] if v else '',
+            v.serial_carroceria_niv[:18] if v else '',
             v.transmision[:6] if v else '',
             fmt_moneda(precio_item)
         ])
     
     table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COLOR_AZUL_MARINO),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, -1), COLOR_NEGRO),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (2, 1), (2, -1), 'LEFT'),   
         ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'), 
@@ -1128,7 +1051,11 @@ def imprimir_factura_institucional(request, factura_id):
         ('FONTSIZE', (0, 0), (-1, 0), 5.5),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_GRIS_OSCURO),
+        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_NEGRO),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     
     table.wrapOn(p, width, height)
@@ -1139,74 +1066,48 @@ def imprimir_factura_institucional(request, factura_id):
     y_tot = y_table_bottom - 20
     if factura.coletillas:
         p.setFont("Helvetica-Bold", 7)
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(46, y_tot, "Condiciones y Coletillas:")
         p.setFont("Helvetica", 6.5)
-        p.setFillColor(COLOR_GRIS_OSCURO)
         y_col = y_tot - 10
         for linea in str(factura.coletillas).split('\n'):
             p.drawString(46, y_col, linea.strip())
             y_col -= 9
             
     p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
     
     monto_descuento_cot = getattr(cotizacion, 'monto_descuento', 0)
     if monto_descuento_cot > 0:
         desc_bs = monto_descuento_cot * factor_bs
         subtotal_bruto_bs = factura.base_imponible + factura.monto_exento + desc_bs
-        
         p.drawString(330, y_tot, "Subtotal Bs.:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, fmt_moneda(subtotal_bruto_bs))
         y_tot -= 14
-        
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(330, y_tot, f"Descuento ({cotizacion.porcentaje_descuento}%) Bs.:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, f"- {fmt_moneda(desc_bs)}")
         y_tot -= 14
-        p.setFillColor(COLOR_AZUL_MARINO)
 
     p.drawString(330, y_tot, "Base Imponible Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.base_imponible))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "Exento Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.monto_exento))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "I.V.A. (16%) Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.impuesto_iva))
     
-    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1)
     p.line(320, y_tot - 4, 566, y_tot - 4)
     y_tot -= 14
     
     p.setFont("Helvetica-Bold", 9.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
     p.drawRightString(566, y_tot, fmt_moneda(factura.total))
-
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: Bs. {fmt_moneda(factura.total)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    qr_widget.barFillColor = COLOR_AZUL_MARINO
-    bounds = qr_widget.getBounds()
-    qr_w = bounds[2] - bounds[0]
-    qr_h = bounds[3] - bounds[1]
-    size_qr = 55
-    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 46, 75)
 
     p.showPage()
     p.save()
     return response
+
 
 @login_required
 def imprimir_factura_institucional_sin_sap(request, factura_id):
@@ -1219,38 +1120,34 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_NEGRO = colors.black
 
     p.setFont("Helvetica-Bold", 10)
-    p.setFillColor(COLOR_AZUL_MARINO)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 630, "FACTURA N°:")
     p.drawString(400, 610, "N° DE CONTROL:")
     p.drawString(400, 590, "FECHA DE EMISIÓN:")
     
     p.setFont("Helvetica", 10)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(550, 630, str(factura.numero_factura))
     p.drawRightString(550, 610, str(factura.numero_control))
     p.drawRightString(550, 590, factura.fecha_emision.strftime('%d/%m/%Y'))
     
     p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(46, 540, "RAZÓN SOCIAL:")
     p.drawString(46, 495, "C.I. / R.I.F.:")
     p.drawString(46, 475, "DIRECCIÓN:")
     p.drawString(330, 495, "TELÉFONO:")
     
     p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawString(130, 540, str(cliente.nombre_razon_social))
     p.drawString(130, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(130, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(390, 495, str(cliente.telefono or 'N/A'))
     
+    # --- CUADRO DETALLADO (SIN SAP EN Bs) ---
     data = [['CANT', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', 'PRECIO']]
-    col_widths = [20, 80, 45, 45, 35, 25, 35, 60, 85, 35, 55] 
+    col_widths = [20, 100, 45, 45, 35, 20, 25, 60, 75, 35, 60] 
     
     factor_bs = obtener_factor_bs(factura, cotizacion)
     for item in cotizacion.items.all():
@@ -1258,7 +1155,7 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
         precio_item = item.precio_unitario * factor_bs
         data.append([
             str(item.cantidad),
-            item.descripcion[:22],
+            item.descripcion[:26],
             v.marca[:10] if v else '',
             v.modelo[:10] if v else '',
             v.placa if v else 'S/P',
@@ -1272,8 +1169,8 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
     
     table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COLOR_AZUL_MARINO),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, -1), COLOR_NEGRO),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (1, 1), (1, -1), 'LEFT'),   
         ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'), 
@@ -1281,7 +1178,11 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
         ('FONTSIZE', (0, 0), (-1, 0), 5.5),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_GRIS_OSCURO),
+        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_NEGRO),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     
     table.wrapOn(p, width, height)
@@ -1292,77 +1193,50 @@ def imprimir_factura_institucional_sin_sap(request, factura_id):
     y_tot = y_table_bottom - 20
     if factura.coletillas:
         p.setFont("Helvetica-Bold", 7)
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(46, y_tot, "Condiciones y Coletillas:")
         p.setFont("Helvetica", 6.5)
-        p.setFillColor(COLOR_GRIS_OSCURO)
         y_col = y_tot - 10
         for linea in str(factura.coletillas).split('\n'):
             p.drawString(46, y_col, linea.strip())
             y_col -= 9
             
     p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
     
     monto_descuento_cot = getattr(cotizacion, 'monto_descuento', 0)
     if monto_descuento_cot > 0:
         desc_bs = monto_descuento_cot * factor_bs
         subtotal_bruto_bs = factura.base_imponible + factura.monto_exento + desc_bs
-        
         p.drawString(330, y_tot, "Subtotal Bs.:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, fmt_moneda(subtotal_bruto_bs))
         y_tot -= 14
-        
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(330, y_tot, f"Descuento ({cotizacion.porcentaje_descuento}%) Bs.:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, f"- {fmt_moneda(desc_bs)}")
         y_tot -= 14
-        p.setFillColor(COLOR_AZUL_MARINO)
 
     p.drawString(330, y_tot, "Base Imponible Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.base_imponible))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "Exento Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.monto_exento))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "I.V.A. (16%) Bs.:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(factura.impuesto_iva))
     
-    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1)
     p.line(320, y_tot - 4, 566, y_tot - 4)
     y_tot -= 14
     
     p.setFont("Helvetica-Bold", 9.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "TOTAL GENERAL Bs.:")
     p.drawRightString(566, y_tot, fmt_moneda(factura.total))
-
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: Bs. {fmt_moneda(factura.total)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    qr_widget.barFillColor = COLOR_AZUL_MARINO
-    bounds = qr_widget.getBounds()
-    qr_w = bounds[2] - bounds[0]
-    qr_h = bounds[3] - bounds[1]
-    size_qr = 55
-    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 46, 75)
 
     p.showPage()
     p.save()
     return response
 
 # ==========================================
-# IMPRESIONES PDF - FACTURAS DÓLARES
+# IMPRESIONES PDF - FACTURAS DÓLARES (BLANCO Y NEGRO, SIN FONDO, SIN QR)
 # ==========================================
 
 @login_required
@@ -1375,7 +1249,10 @@ def imprimir_factura_dolares(request, factura_id):
     response['Content-Disposition'] = f'inline; filename="Factura_USD_{factura.numero_factura}.pdf"'
 
     p = canvas.Canvas(response, pagesize=letter)
+    COLOR_NEGRO = colors.black
+
     p.setFont("Helvetica-Bold", 9)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 620, "FACTURA N°:")
     p.drawString(400, 600, "FECHA DE EMISIÓN:")
     p.setFont("Helvetica", 9)
@@ -1394,6 +1271,7 @@ def imprimir_factura_dolares(request, factura_id):
     p.drawString(150, 455, str(cliente.telefono or ''))
     
     y_line1 = 435
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1.5)
     p.line(40, y_line1, 560, y_line1)
     p.setFont("Helvetica-Bold", 8)
@@ -1425,7 +1303,8 @@ def imprimir_factura_dolares(request, factura_id):
             monto_exento_usd += subtotal_item
             
         p.drawString(75, y_items, str(item.cantidad))
-        p.drawString(130, y_items, item.descripcion[:35])
+        # Ajustado a 30 caracteres para que no se superponga con TIPO DE IVA
+        p.drawString(130, y_items, item.descripcion[:30])
         p.drawString(280, y_items, tipo_iva)
         p.drawString(390, y_items, alic_porcentaje)
         p.drawRightString(550, y_items, fmt_moneda(subtotal_item))
@@ -1525,13 +1404,6 @@ def imprimir_factura_dolares(request, factura_id):
     p.drawRightString(440, y_tot, "TOTAL GENERAL ($)")
     p.drawRightString(550, y_tot, fmt_moneda(total_usd))
 
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: ${fmt_moneda(total_usd)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    d = Drawing(45, 45, transform=[45 / qr_widget.getBounds()[2], 0, 0, 45 / qr_widget.getBounds()[3], 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 40, 50)
-
     p.showPage()
     p.save()
     return response
@@ -1547,38 +1419,33 @@ def imprimir_factura_institucional_dolares(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_NEGRO = colors.black
 
     p.setFont("Helvetica-Bold", 10)
-    p.setFillColor(COLOR_AZUL_MARINO)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 630, "FACTURA N°:")
     p.drawString(400, 610, "N° DE CONTROL:")
     p.drawString(400, 590, "FECHA DE EMISIÓN:")
     
     p.setFont("Helvetica", 10)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(550, 630, str(factura.numero_factura))
     p.drawRightString(550, 610, str(factura.numero_control))
     p.drawRightString(550, 590, factura.fecha_emision.strftime('%d/%m/%Y'))
     
     p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(46, 540, "RAZÓN SOCIAL:")
     p.drawString(46, 495, "C.I. / R.I.F.:")
     p.drawString(46, 475, "DIRECCIÓN:")
     p.drawString(330, 495, "TELÉFONO:")
     
     p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawString(130, 540, str(cliente.nombre_razon_social))
     p.drawString(130, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(130, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(390, 495, str(cliente.telefono or 'N/A'))
     
     data = [['CANT', 'CÓD. SAP', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', 'PRECIO']]
-    col_widths = [20, 35, 65, 40, 40, 35, 20, 30, 55, 85, 35, 60] 
+    col_widths = [20, 35, 75, 40, 40, 35, 20, 25, 55, 80, 35, 60] 
 
     for item in cotizacion.items.all():
         v = item.vehiculo
@@ -1586,22 +1453,22 @@ def imprimir_factura_institucional_dolares(request, factura_id):
         data.append([
             str(item.cantidad),
             "1124626", 
-            item.descripcion[:15],
-            v.marca[:8] if v else '',
-            v.modelo[:8] if v else '',
+            item.descripcion[:22],
+            v.marca[:10] if v else '',
+            v.modelo[:10] if v else '',
             v.placa if v else 'S/P',
             str(v.anio) if v else '',
             v.color[:7] if v else '',
-            v.serial_motor[:12] if v else '',
-            v.serial_carroceria_niv[:16] if v else '',
+            v.serial_motor[:15] if v else '',
+            v.serial_carroceria_niv[:18] if v else '',
             v.transmision[:6] if v else '',
             fmt_moneda(precio_item)
         ])
     
     table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COLOR_AZUL_MARINO),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, -1), COLOR_NEGRO),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (2, 1), (2, -1), 'LEFT'),   
         ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'), 
@@ -1609,7 +1476,11 @@ def imprimir_factura_institucional_dolares(request, factura_id):
         ('FONTSIZE', (0, 0), (-1, 0), 5.5),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_GRIS_OSCURO),
+        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_NEGRO),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     
     table.wrapOn(p, width, height)
@@ -1620,69 +1491,42 @@ def imprimir_factura_institucional_dolares(request, factura_id):
     y_tot = y_table_bottom - 20
     if factura.coletillas:
         p.setFont("Helvetica-Bold", 7)
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(46, y_tot, "Condiciones y Coletillas:")
         p.setFont("Helvetica", 6.5)
-        p.setFillColor(COLOR_GRIS_OSCURO)
         y_col = y_tot - 10
         for linea in str(factura.coletillas).split('\n'):
             p.drawString(46, y_col, linea.strip())
             y_col -= 9
             
     p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
     
     monto_descuento_cot = getattr(cotizacion, 'monto_descuento', 0)
     if monto_descuento_cot > 0:
         subtotal_bruto_usd = cotizacion.base_imponible + cotizacion.monto_exento + cotizacion.monto_descuento
-        
         p.drawString(330, y_tot, "Subtotal $:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, fmt_moneda(subtotal_bruto_usd))
         y_tot -= 14
-        
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(330, y_tot, f"Descuento ({cotizacion.porcentaje_descuento}%) $:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, f"- {fmt_moneda(monto_descuento_cot)}")
         y_tot -= 14
-        p.setFillColor(COLOR_AZUL_MARINO)
 
     p.drawString(330, y_tot, "Base Imponible $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.base_imponible))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "Exento $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.monto_exento))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "I.V.A. (16%) $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.impuesto_iva))
     
-    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1)
     p.line(320, y_tot - 4, 566, y_tot - 4)
     y_tot -= 14
     
     p.setFont("Helvetica-Bold", 9.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "TOTAL GENERAL $:")
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.total))
-
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: ${fmt_moneda(cotizacion.total)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    qr_widget.barFillColor = COLOR_AZUL_MARINO
-    bounds = qr_widget.getBounds()
-    qr_w = bounds[2] - bounds[0]
-    qr_h = bounds[3] - bounds[1]
-    size_qr = 55
-    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 46, 75)
 
     p.showPage()
     p.save()
@@ -1699,45 +1543,40 @@ def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
 
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
-    
-    COLOR_AZUL_MARINO = colors.HexColor('#273376')
-    COLOR_GRIS_OSCURO = colors.HexColor('#333333')
+    COLOR_NEGRO = colors.black
 
     p.setFont("Helvetica-Bold", 10)
-    p.setFillColor(COLOR_AZUL_MARINO)
+    p.setFillColor(COLOR_NEGRO)
     p.drawString(400, 630, "FACTURA N°:")
     p.drawString(400, 610, "N° DE CONTROL:")
     p.drawString(400, 590, "FECHA DE EMISIÓN:")
     
     p.setFont("Helvetica", 10)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(550, 630, str(factura.numero_factura))
     p.drawRightString(550, 610, str(factura.numero_control))
     p.drawRightString(550, 590, factura.fecha_emision.strftime('%d/%m/%Y'))
     
     p.setFont("Helvetica-Bold", 8.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(46, 540, "RAZÓN SOCIAL:")
     p.drawString(46, 495, "C.I. / R.I.F.:")
     p.drawString(46, 475, "DIRECCIÓN:")
     p.drawString(330, 495, "TELÉFONO:")
     
     p.setFont("Helvetica", 8.5)
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawString(130, 540, str(cliente.nombre_razon_social))
     p.drawString(130, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
     p.drawString(130, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
     p.drawString(390, 495, str(cliente.telefono or 'N/A'))
     
     data = [['CANT', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', 'PRECIO']]
-    col_widths = [20, 80, 45, 45, 35, 25, 35, 60, 85, 35, 55] 
+    col_widths = [20, 100, 45, 45, 35, 20, 25, 60, 75, 35, 60] 
 
     for item in cotizacion.items.all():
         v = item.vehiculo
         precio_item = item.precio_unitario
         data.append([
             str(item.cantidad),
-            item.descripcion[:22],
+            item.descripcion[:26],
             v.marca[:10] if v else '',
             v.modelo[:10] if v else '',
             v.placa if v else 'S/P',
@@ -1751,8 +1590,8 @@ def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
     
     table = Table(data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), COLOR_AZUL_MARINO),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, -1), COLOR_NEGRO),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('ALIGN', (1, 1), (1, -1), 'LEFT'),   
         ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'), 
@@ -1760,7 +1599,11 @@ def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
         ('FONTSIZE', (0, 0), (-1, 0), 5.5),
         ('FONTSIZE', (0, 1), (-1, -1), 6),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_GRIS_OSCURO),
+        ('GRID', (0, 0), (-1, -1), 0.5, COLOR_NEGRO),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
     ]))
     
     table.wrapOn(p, width, height)
@@ -1771,146 +1614,42 @@ def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
     y_tot = y_table_bottom - 20
     if factura.coletillas:
         p.setFont("Helvetica-Bold", 7)
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(46, y_tot, "Condiciones y Coletillas:")
         p.setFont("Helvetica", 6.5)
-        p.setFillColor(COLOR_GRIS_OSCURO)
         y_col = y_tot - 10
         for linea in str(factura.coletillas).split('\n'):
             p.drawString(46, y_col, linea.strip())
             y_col -= 9
             
     p.setFont("Helvetica-Bold", 8)
-    p.setFillColor(COLOR_AZUL_MARINO)
     
     monto_descuento_cot = getattr(cotizacion, 'monto_descuento', 0)
     if monto_descuento_cot > 0:
         subtotal_bruto_usd = cotizacion.base_imponible + cotizacion.monto_exento + cotizacion.monto_descuento
-        
         p.drawString(330, y_tot, "Subtotal $:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, fmt_moneda(subtotal_bruto_usd))
         y_tot -= 14
-        
-        p.setFillColor(COLOR_AZUL_MARINO)
         p.drawString(330, y_tot, f"Descuento ({cotizacion.porcentaje_descuento}%) $:")
-        p.setFillColor(COLOR_GRIS_OSCURO)
         p.drawRightString(566, y_tot, f"- {fmt_moneda(monto_descuento_cot)}")
         y_tot -= 14
-        p.setFillColor(COLOR_AZUL_MARINO)
 
     p.drawString(330, y_tot, "Base Imponible $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.base_imponible))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "Exento $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.monto_exento))
     y_tot -= 14
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "I.V.A. (16%) $:")
-    p.setFillColor(COLOR_GRIS_OSCURO)
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.impuesto_iva))
     
-    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setStrokeColor(COLOR_NEGRO)
     p.setLineWidth(1)
     p.line(320, y_tot - 4, 566, y_tot - 4)
     y_tot -= 14
     
     p.setFont("Helvetica-Bold", 9.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(330, y_tot, "TOTAL GENERAL $:")
     p.drawRightString(566, y_tot, fmt_moneda(cotizacion.total))
-
-    qr_texto = f"EMVEPRO C.A. | RIF: G-20010522-4\nFactura: {factura.numero_factura}\nControl: {factura.numero_control}\nCliente: {cliente.nombre_razon_social}\nTotal: ${fmt_moneda(cotizacion.total)}"
-    qr_widget = qr.QrCodeWidget(qr_texto)
-    qr_widget.barLevel = 'M'
-    qr_widget.barFillColor = COLOR_AZUL_MARINO
-    bounds = qr_widget.getBounds()
-    qr_w = bounds[2] - bounds[0]
-    qr_h = bounds[3] - bounds[1]
-    size_qr = 55
-    d = Drawing(size_qr, size_qr, transform=[size_qr / qr_w, 0, 0, size_qr / qr_h, 0, 0])
-    d.add(qr_widget)
-    d.drawOn(p, 46, 75)
-
-    p.showPage()
-    p.save()
-    return response
-
-# ==========================================
-# CERTIFICADO DE ORIGEN
-# ==========================================
-
-@login_required
-def imprimir_certificado_origen(request, factura_id):
-    factura = get_object_or_404(Factura, id=factura_id)
-    cotizacion = factura.cotizacion
-    cliente = cotizacion.cliente
-    
-    vehiculo = None
-    for item in cotizacion.items.all():
-        if item.vehiculo:
-            vehiculo = item.vehiculo
-            break
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="Certificado_Origen_{factura.numero_factura}.pdf"'
-
-    p = canvas.Canvas(response, pagesize=letter)
-    p.setFont("Helvetica", 8)
-
-    p.drawCentredString(306, 750, 'EMPRESA DE DISTRIBUCION DE PRODUCTOS E INSUMOS "VENEZUELA PRODUCTIVA, C.A."')
-    p.drawString(140, 715, factura.fecha_emision.strftime('%d/%m/%Y'))
-
-    if vehiculo:
-        p.drawString(50, 680, str(vehiculo.tipo or ''))
-        p.drawString(180, 680, str(vehiculo.marca))
-        p.drawString(380, 680, str(getattr(vehiculo, 'serie_version', '') or vehiculo.modelo))
-        
-        p.drawString(140, 650, str(vehiculo.anio))
-        p.drawString(380, 650, str(vehiculo.serial_carroceria_niv or ''))
-        
-        p.drawString(140, 622, str(vehiculo.anio))
-        p.drawString(380, 622, str(vehiculo.serial_carroceria_niv or ''))
-        
-        p.drawString(140, 595, str(vehiculo.serial_motor or ''))
-        p.drawString(380, 595, str(vehiculo.serial_carroceria_niv or ''))
-        
-        p.drawString(120, 568, str(vehiculo.clase))
-        p.drawString(280, 568, str(vehiculo.tipo))
-        p.drawString(450, 568, str(vehiculo.uso))
-        
-        p.drawString(120, 542, str(vehiculo.uso))
-        p.drawString(280, 542, str(vehiculo.color or ''))
-        
-        p.drawString(120, 515, str(vehiculo.num_puestos or ''))
-        p.drawString(280, 515, str(vehiculo.num_ejes or ''))
-        p.drawString(380, 515, str(vehiculo.peso_tara or ''))
-        p.drawString(500, 515, str(vehiculo.capacidad_carga or ''))
-        
-        p.drawString(140, 488, str(vehiculo.puerto_entrada or 'LA GUAIRA'))
-        p.drawString(380, 488, str(vehiculo.planilla_liquidacion or ''))
-        
-        p.drawString(180, 460, str(vehiculo.certificado_origen or ''))
-        p.drawString(380, 460, str(vehiculo.factura_adquisicion or ''))
-        
-        p.drawString(380, 435, str(vehiculo.fecha_fin_convenio.strftime('%d/%m/%Y') if vehiculo.fecha_fin_convenio else '31/12/2026'))
-
-    p.drawString(140, 355, "VENEZUELA PRODUCTIVA C.A.")
-    p.drawString(450, 355, "G-20010522-4")
-    
-    p.drawString(140, 315, f"{cliente.tipo_documento}-{cliente.identificacion}")
-    p.drawString(140, 290, str(cliente.nombre_razon_social))
-    
-    dir_texto = str(cliente.direccion or '')
-    p.drawString(140, 265, dir_texto[:55])
-    if len(dir_texto) > 55:
-        p.drawString(140, 240, dir_texto[55:110])
-        
-    p.drawString(380, 190, "CARABOBO")
-    p.drawString(520, 190, str(cliente.telefono or ''))
 
     p.showPage()
     p.save()
