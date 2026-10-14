@@ -2035,3 +2035,154 @@ def imprimir_certificado_origen(request, factura_id):
     p.showPage()
     p.save()
     return response
+# ==========================================
+# GESTIÓN DE FACTURAS Y COBRANZAS (Continuación)
+# ==========================================
+
+@login_required
+def historial_facturas(request):
+    query = request.GET.get('q')
+    facturas = Factura.objects.select_related('cotizacion__cliente').all()
+    
+    if query:
+        facturas = facturas.filter(
+            Q(numero_factura__icontains=query) |
+            Q(numero_control__icontains=query) |
+            Q(cotizacion__cliente__nombre_razon_social__icontains=query) |
+            Q(cotizacion__cliente__identificacion__icontains=query)
+        )
+        
+    facturas = facturas.order_by('-fecha_emision', '-numero_factura')
+    return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas})
+
+@login_required
+def exportar_facturas_excel(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="CONSOLIDADO_SERIE_A_FACTURACION.xlsx"'
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Consolidado Serie A"
+
+    headers = [
+        'Fecha Factura', 'Nro Factura', 'Nro Control', 'Estatus de Pago', 'Cliente', 
+        'Cedula/Rif', 'Dirección', 'Telefonos', 'Descripción', 
+        'Base Imponible', 'IVA 16%', 'EXENTO (E.)', 'Total General', 
+        'Marca', 'Modelo', 'Color', 'Placa', 'Año', 'Clase', 'Tipo', 'Uso',
+        'Serial Motor', 'Serial Carrocería NIV', 'Emitido Por'
+    ]
+    
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+
+    facturas = Factura.objects.select_related('cotizacion__cliente', 'usuario').prefetch_related('cotizacion__items__vehiculo').order_by('numero_factura')
+    
+    diccionario_estados = {
+        'PENDIENTE': 'Por Pagar',
+        'PARCIAL': 'Pago Parcial',
+        'PAGADA': 'Pagada',
+        'ANULADA': 'Anulada'
+    }
+    
+    for f in facturas:
+        cliente = f.cotizacion.cliente
+        item = f.cotizacion.items.first()
+        v = item.vehiculo if item else None
+        
+        estatus_texto = diccionario_estados.get(getattr(f, 'estado_pago', 'PENDIENTE'), 'Por Pagar')
+        nombre_usuario = f.usuario.username.title() if f.usuario else 'N/A'
+        
+        ws.append([
+            f.fecha_emision.strftime('%d/%m/%Y'), f.numero_factura, getattr(f, 'numero_control', 'N/A'), estatus_texto, 
+            cliente.nombre_razon_social, f"{cliente.tipo_documento}-{cliente.identificacion}", 
+            cliente.direccion, cliente.telefono, item.descripcion if item else '',
+             fmt_moneda(f.base_imponible), fmt_moneda(f.impuesto_iva), fmt_moneda(f.monto_exento), fmt_moneda(f.total),
+            v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
+            v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
+            v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
+            nombre_usuario
+        ])
+
+    wb.save(response)
+    return response
+
+
+# ==========================================
+# CERTIFICADO DE ORIGEN
+# ==========================================
+
+@login_required
+def imprimir_certificado_origen(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    cotizacion = factura.cotizacion
+    cliente = cotizacion.cliente
+    
+    vehiculo = None
+    for item in cotizacion.items.all():
+        if item.vehiculo:
+            vehiculo = item.vehiculo
+            break
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Certificado_Origen_{factura.numero_factura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    p.setFont("Helvetica", 8)
+
+    p.drawCentredString(306, 750, 'EMPRESA DE DISTRIBUCION DE PRODUCTOS E INSUMOS "VENEZUELA PRODUCTIVA, C.A."')
+    p.drawString(140, 715, factura.fecha_emision.strftime('%d/%m/%Y'))
+
+    if vehiculo:
+        p.drawString(50, 680, str(vehiculo.tipo or ''))
+        p.drawString(180, 680, str(vehiculo.marca))
+        p.drawString(380, 680, str(getattr(vehiculo, 'serie_version', '') or vehiculo.modelo))
+        
+        p.drawString(140, 650, str(vehiculo.anio))
+        p.drawString(380, 650, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(140, 622, str(vehiculo.anio))
+        p.drawString(380, 622, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(140, 595, str(vehiculo.serial_motor or ''))
+        p.drawString(380, 595, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(120, 568, str(vehiculo.clase))
+        p.drawString(280, 568, str(vehiculo.tipo))
+        p.drawString(450, 568, str(vehiculo.uso))
+        
+        p.drawString(120, 542, str(vehiculo.uso))
+        p.drawString(280, 542, str(vehiculo.color or ''))
+        
+        p.drawString(120, 515, str(vehiculo.num_puestos or ''))
+        p.drawString(280, 515, str(vehiculo.num_ejes or ''))
+        p.drawString(380, 515, str(vehiculo.peso_tara or ''))
+        p.drawString(500, 515, str(vehiculo.capacidad_carga or ''))
+        
+        p.drawString(140, 488, str(vehiculo.puerto_entrada or 'LA GUAIRA'))
+        p.drawString(380, 488, str(vehiculo.planilla_liquidacion or ''))
+        
+        p.drawString(180, 460, str(vehiculo.certificado_origen or ''))
+        p.drawString(380, 460, str(vehiculo.factura_adquisicion or ''))
+        
+        p.drawString(380, 435, str(vehiculo.fecha_fin_convenio.strftime('%d/%m/%Y') if vehiculo.fecha_fin_convenio else '31/12/2026'))
+
+    p.drawString(140, 355, "VENEZUELA PRODUCTIVA C.A.")
+    p.drawString(450, 355, "G-20010522-4")
+    
+    p.drawString(140, 315, f"{cliente.tipo_documento}-{cliente.identificacion}")
+    p.drawString(140, 290, str(cliente.nombre_razon_social))
+    
+    dir_texto = str(cliente.direccion or '')
+    p.drawString(140, 265, dir_texto[:55])
+    if len(dir_texto) > 55:
+        p.drawString(140, 240, dir_texto[55:110])
+        
+    p.drawString(380, 190, "CARABOBO")
+    p.drawString(520, 190, str(cliente.telefono or ''))
+
+    p.showPage()
+    p.save()
+    return response
