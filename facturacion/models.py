@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.db import models
 from decimal import Decimal
+from django.utils import timezone
 
 class Cliente(models.Model):
     TIPO_DOCUMENTO = [
@@ -75,8 +76,9 @@ class Cotizacion(models.Model):
         ('A', 'Anulada'),
     ]
     fecha_creacion = models.DateTimeField(auto_now_add=True)
-    # 1. Agrega estos campos de fecha y validez:
-    fecha_emision = models.DateField(auto_now_add=True, verbose_name="Fecha de Emisión")
+    
+    # 1. Ajustado el campo fecha_emision para ser editable y usar la fecha actual como valor por defecto.
+    fecha_emision = models.DateField(default=timezone.now, verbose_name="Fecha de Emisión")
     validez_dias = models.PositiveIntegerField(default=15, verbose_name="Validez (Días)")
     # Ahora la cotización se amarra al cliente, no a un solo vehículo
     cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, related_name='cotizaciones')
