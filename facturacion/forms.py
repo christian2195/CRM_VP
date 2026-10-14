@@ -4,10 +4,14 @@ from .models import Cotizacion, ItemCotizacion, Factura, Vehiculo, Cliente
 class CotizacionForm(forms.ModelForm):
     class Meta:
         model = Cotizacion
-        fields = ['cliente', 'observaciones']
+        fields = ['cliente', 'observaciones', 'fecha_emision', 'validez_dias', 'porcentaje_descuento', 'coletillas']
         widgets = {
             'cliente': forms.Select(attrs={'class': 'form-select'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Opcional...'}),
+            'fecha_emision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'validez_dias': forms.NumberInput(attrs={'class': 'form-control'}),
+            'porcentaje_descuento': forms.NumberInput(attrs={'class': 'form-control text-end input-calc', 'min': '0', 'max': '100', 'step': '0.01'}),
+            'coletillas': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Escriba las condiciones, garantías o notas de la venta...'
         }
 
 class ItemCotizacionForm(forms.ModelForm):
