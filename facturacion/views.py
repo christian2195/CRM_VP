@@ -1730,3 +1730,308 @@ def imprimir_certificado_origen(request, factura_id):
     p.showPage()
     p.save()
     return response
+
+# ==========================================
+# GESTIÓN DE FACTURAS Y COBRANZAS
+# ==========================================
+
+@login_required
+def generar_factura(request, cotizacion_id):
+    cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
+    factura_previa = getattr(cotizacion, 'factura', None)
+    
+    if cotizacion.estado == 'F' and (not factura_previa or factura_previa.estado_pago != 'ANULADA'):
+        messages.warning(request, 'Esta cotización ya ha sido facturada previamente y está activa.')
+        return redirect('dashboard')
+        
+    vehiculos_disponibles = Vehiculo.objects.filter(
+        Q(estado='Disponible') | 
+        Q(id__in=cotizacion.items.filter(vehiculo__isnull=False).values_list('vehiculo_id', flat=True))
+    )
+
+    if request.method == 'POST':
+        if factura_previa and factura_previa.estado_pago == 'ANULADA':
+            form = FacturaForm(request.POST, instance=factura_previa)
+        else:
+            form = FacturaForm(request.POST)
+            
+        if form.is_valid():
+            with transaction.atomic():
+                for item in cotizacion.items.all():
+                    if item.vehiculo:
+                        item.vehiculo.estado = 'Disponible'
+                        item.vehiculo.save()
+                
+                cotizacion.items.all().delete()
+                
+                vehiculos_ids = request.POST.getlist('item_vehiculo[]')
+                descripciones = request.POST.getlist('item_descripcion[]')
+                cantidades = request.POST.getlist('item_cantidad[]')
+                precios = request.POST.getlist('item_precio[]')
+                ivas = request.POST.getlist('item_iva[]')
+                
+                tasa_cambio_str = request.POST.get('tasa_cambio', '1.00')
+                tasa_cambio = Decimal(tasa_cambio_str) if tasa_cambio_str else Decimal('1.00')
+                
+                subtotal_base = Decimal('0.00')
+                subtotal_exento = Decimal('0.00')
+                
+                for i in range(len(descripciones)):
+                    vehiculo_id = vehiculos_ids[i] if vehiculos_ids[i] else None
+                    vehiculo_obj = Vehiculo.objects.filter(id=vehiculo_id).first() if vehiculo_id else None
+                        
+                    aplica_iva = True if ivas[i] == 'on' else False
+                    cant = int(cantidades[i])
+                    precio_usd = Decimal(precios[i])
+                    
+                    subtotal_linea = cant * precio_usd
+                    if aplica_iva:
+                        subtotal_base += subtotal_linea
+                    else:
+                        subtotal_exento += subtotal_linea
+                    
+                    if vehiculo_obj:
+                        vehiculo_obj.estado = 'Vendido'
+                        vehiculo_obj.save()
+                    
+                    ItemCotizacion.objects.create(
+                        cotizacion=cotizacion,
+                        vehiculo=vehiculo_obj,
+                        descripcion=descripciones[i],
+                        cantidad=cant,
+                        precio_unitario=precio_usd, 
+                        aplica_iva=aplica_iva
+                    )
+                
+                porc_desc = cotizacion.porcentaje_descuento or Decimal('0.00')
+                desc_base = subtotal_base * (porc_desc / Decimal('100.00'))
+                desc_exento = subtotal_exento * (porc_desc / Decimal('100.00'))
+                
+                cotizacion.monto_descuento = desc_base + desc_exento
+                base_imponible_usd = subtotal_base - desc_base
+                monto_exento_usd = subtotal_exento - desc_exento
+
+                cotizacion.base_imponible = base_imponible_usd
+                cotizacion.monto_exento = monto_exento_usd
+                cotizacion.impuesto_iva = base_imponible_usd * Decimal('0.16')
+                cotizacion.total = cotizacion.base_imponible + cotizacion.monto_exento + cotizacion.impuesto_iva
+                cotizacion.estado = 'F'
+                cotizacion.save()
+
+                factura = form.save(commit=False)
+                factura.cotizacion = cotizacion
+                factura.usuario = request.user
+                
+                factura.base_imponible = base_imponible_usd * tasa_cambio
+                factura.monto_exento = monto_exento_usd * tasa_cambio
+                factura.impuesto_iva = factura.base_imponible * Decimal('0.16')
+                factura.total = factura.base_imponible + factura.monto_exento + factura.impuesto_iva
+                
+                factura.estado_pago = 'PENDIENTE' 
+                factura.porcentaje_pago = 0
+                factura.save()
+                
+            messages.success(request, f'¡Factura N° {factura.numero_factura} emitida y vehículos rebajados del inventario!')
+            return redirect('imprimir_factura', factura_id=factura.id)
+    else:
+        form = FacturaForm(initial={'fecha_emision': timezone.now().date()})
+        
+    context = {
+        'form': form,
+        'cotizacion': cotizacion,
+        'vehiculos_disponibles': vehiculos_disponibles,
+    }
+    return render(request, 'facturacion/generar_factura.html', context)
+
+@login_required
+def actualizar_pago_factura(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    if request.method == 'POST':
+        estado = request.POST.get('estado_pago')
+        porcentaje_str = request.POST.get('porcentaje_pago')
+        
+        if estado in dict(Factura.ESTADOS_PAGO).keys():
+            factura.estado_pago = estado
+            
+            if porcentaje_str and str(porcentaje_str).strip():
+                porcentaje = int(porcentaje_str)
+            else:
+                porcentaje = 0
+                
+            if factura.estado_pago == 'ANULADA':
+                factura.porcentaje_pago = 0
+                factura.base_imponible = Decimal('0.00')
+                factura.impuesto_iva = Decimal('0.00')
+                factura.monto_exento = Decimal('0.00')
+                factura.total = Decimal('0.00')
+                
+                for item in factura.cotizacion.items.all():
+                    if item.vehiculo:
+                        item.vehiculo.estado = 'Disponible'
+                        item.vehiculo.save()
+                
+                cotizacion = factura.cotizacion
+                cotizacion.estado = 'P' 
+                cotizacion.save()
+            else:
+                factura.porcentaje_pago = porcentaje
+                if factura.porcentaje_pago >= 100:
+                    factura.estado_pago = 'PAGADA'
+                    factura.porcentaje_pago = 100
+                elif factura.porcentaje_pago == 0 and factura.estado_pago != 'PENDIENTE':
+                    factura.estado_pago = 'PENDIENTE'
+                
+            factura.save()
+            messages.success(request, f'Estatus de la factura {factura.numero_factura} actualizado con éxito.')
+            
+    referer = request.META.get('HTTP_REFERER')
+    if referer and 'historial' in referer:
+        return redirect('historial_facturas')
+    return redirect('estado_financiero')
+
+@login_required
+def historial_facturas(request):
+    query = request.GET.get('q')
+    facturas = Factura.objects.select_related('cotizacion__cliente').all()
+    
+    if query:
+        facturas = facturas.filter(
+            Q(numero_factura__icontains=query) |
+            Q(numero_control__icontains=query) |
+            Q(cotizacion__cliente__nombre_razon_social__icontains=query) |
+            Q(cotizacion__cliente__identificacion__icontains=query)
+        )
+        
+    facturas = facturas.order_by('-fecha_emision', '-numero_factura')
+    return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas})
+
+@login_required
+def exportar_facturas_excel(request):
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename="CONSOLIDADO_SERIE_A_FACTURACION.xlsx"'
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Consolidado Serie A"
+
+    headers = [
+        'Fecha Factura', 'Nro Factura', 'Nro Control', 'Estatus de Pago', 'Cliente', 
+        'Cedula/Rif', 'Dirección', 'Telefonos', 'Descripción', 
+        'Base Imponible', 'IVA 16%', 'EXENTO (E.)', 'Total General', 
+        'Marca', 'Modelo', 'Color', 'Placa', 'Año', 'Clase', 'Tipo', 'Uso',
+        'Serial Motor', 'Serial Carrocería NIV', 'Emitido Por'
+    ]
+    
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col)
+        cell.font = openpyxl.styles.Font(bold=True)
+        cell.fill = openpyxl.styles.PatternFill(start_color="D3D3D3", end_color="D3D3D3", fill_type="solid")
+
+    facturas = Factura.objects.select_related('cotizacion__cliente', 'usuario').prefetch_related('cotizacion__items__vehiculo').order_by('numero_factura')
+    
+    diccionario_estados = {
+        'PENDIENTE': 'Por Pagar',
+        'PARCIAL': 'Pago Parcial',
+        'PAGADA': 'Pagada',
+        'ANULADA': 'Anulada'
+    }
+    
+    for f in facturas:
+        cliente = f.cotizacion.cliente
+        item = f.cotizacion.items.first()
+        v = item.vehiculo if item else None
+        
+        estatus_texto = diccionario_estados.get(getattr(f, 'estado_pago', 'PENDIENTE'), 'Por Pagar')
+        nombre_usuario = f.usuario.username.title() if f.usuario else 'N/A'
+        
+        ws.append([
+            f.fecha_emision.strftime('%d/%m/%Y'), f.numero_factura, getattr(f, 'numero_control', 'N/A'), estatus_texto, 
+            cliente.nombre_razon_social, f"{cliente.tipo_documento}-{cliente.identificacion}", 
+            cliente.direccion, cliente.telefono, item.descripcion if item else '',
+             fmt_moneda(f.base_imponible), fmt_moneda(f.impuesto_iva), fmt_moneda(f.monto_exento), fmt_moneda(f.total),
+            v.marca if v else '', v.modelo if v else '', v.color if v else '', v.placa if v else 'S/P', 
+            v.anio if v else '', v.clase if v else '', v.tipo if v else '', v.uso if v else '',
+            v.serial_motor if v else '', v.serial_carroceria_niv if v else '',
+            nombre_usuario
+        ])
+
+    wb.save(response)
+    return response
+
+# ==========================================
+# CERTIFICADO DE ORIGEN
+# ==========================================
+
+@login_required
+def imprimir_certificado_origen(request, factura_id):
+    factura = get_object_or_404(Factura, id=factura_id)
+    cotizacion = factura.cotizacion
+    cliente = cotizacion.cliente
+    
+    vehiculo = None
+    for item in cotizacion.items.all():
+        if item.vehiculo:
+            vehiculo = item.vehiculo
+            break
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Certificado_Origen_{factura.numero_factura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    p.setFont("Helvetica", 8)
+
+    p.drawCentredString(306, 750, 'EMPRESA DE DISTRIBUCION DE PRODUCTOS E INSUMOS "VENEZUELA PRODUCTIVA, C.A."')
+    p.drawString(140, 715, factura.fecha_emision.strftime('%d/%m/%Y'))
+
+    if vehiculo:
+        p.drawString(50, 680, str(vehiculo.tipo or ''))
+        p.drawString(180, 680, str(vehiculo.marca))
+        p.drawString(380, 680, str(getattr(vehiculo, 'serie_version', '') or vehiculo.modelo))
+        
+        p.drawString(140, 650, str(vehiculo.anio))
+        p.drawString(380, 650, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(140, 622, str(vehiculo.anio))
+        p.drawString(380, 622, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(140, 595, str(vehiculo.serial_motor or ''))
+        p.drawString(380, 595, str(vehiculo.serial_carroceria_niv or ''))
+        
+        p.drawString(120, 568, str(vehiculo.clase))
+        p.drawString(280, 568, str(vehiculo.tipo))
+        p.drawString(450, 568, str(vehiculo.uso))
+        
+        p.drawString(120, 542, str(vehiculo.uso))
+        p.drawString(280, 542, str(vehiculo.color or ''))
+        
+        p.drawString(120, 515, str(vehiculo.num_puestos or ''))
+        p.drawString(280, 515, str(vehiculo.num_ejes or ''))
+        p.drawString(380, 515, str(vehiculo.peso_tara or ''))
+        p.drawString(500, 515, str(vehiculo.capacidad_carga or ''))
+        
+        p.drawString(140, 488, str(vehiculo.puerto_entrada or 'LA GUAIRA'))
+        p.drawString(380, 488, str(vehiculo.planilla_liquidacion or ''))
+        
+        p.drawString(180, 460, str(vehiculo.certificado_origen or ''))
+        p.drawString(380, 460, str(vehiculo.factura_adquisicion or ''))
+        
+        p.drawString(380, 435, str(vehiculo.fecha_fin_convenio.strftime('%d/%m/%Y') if vehiculo.fecha_fin_convenio else '31/12/2026'))
+
+    p.drawString(140, 355, "VENEZUELA PRODUCTIVA C.A.")
+    p.drawString(450, 355, "G-20010522-4")
+    
+    p.drawString(140, 315, f"{cliente.tipo_documento}-{cliente.identificacion}")
+    p.drawString(140, 290, str(cliente.nombre_razon_social))
+    
+    dir_texto = str(cliente.direccion or '')
+    p.drawString(140, 265, dir_texto[:55])
+    if len(dir_texto) > 55:
+        p.drawString(140, 240, dir_texto[55:110])
+        
+    p.drawString(380, 190, "CARABOBO")
+    p.drawString(520, 190, str(cliente.telefono or ''))
+
+    p.showPage()
+    p.save()
+    return response
