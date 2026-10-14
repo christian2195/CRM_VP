@@ -75,6 +75,9 @@ class Cotizacion(models.Model):
         ('A', 'Anulada'),
     ]
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+    # 1. Agrega estos campos de fecha y validez:
+    fecha_emision = models.DateField(auto_now_add=True, verbose_name="Fecha de Emisión")
+    validez_dias = models.PositiveIntegerField(default=15, verbose_name="Validez (Días)")
     # Ahora la cotización se amarra al cliente, no a un solo vehículo
     cliente = models.ForeignKey(Cliente, on_delete=models.RESTRICT, related_name='cotizaciones')
     estado = models.CharField(max_length=1, choices=ESTADO_CHOICES, default='B')
