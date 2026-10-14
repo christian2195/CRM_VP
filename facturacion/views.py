@@ -441,23 +441,30 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(55, y_col - 6, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
     p.drawString(55, y_col - 14, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
 
-    y_firmas = 190
-    p.setStrokeColor(COLOR_AZUL_MARINO)
-    p.setLineWidth(0.6)
-    p.line(85, y_firmas, 245, y_firmas)
-    p.line(365, y_firmas, 525, y_firmas)
+    # --- ZONA DE FIRMAS (REVISADO / AUTORIZADO) ---
+    y_titulo_firma = 215
+    y_linea_firma = 170
+
     p.setFont("Helvetica-Bold", 7.5)
     p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawCentredString(165, y_firmas + 6, "REVISADO POR:")
-    p.drawCentredString(445, y_firmas + 6, "AUTORIZADO POR:")
+    p.drawCentredString(165, y_titulo_firma, "REVISADO POR:")
+    p.drawCentredString(445, y_titulo_firma, "AUTORIZADO POR:")
+
+    p.setStrokeColor(COLOR_AZUL_MARINO)
+    p.setLineWidth(0.6)
+    p.line(85, y_linea_firma, 245, y_linea_firma)
+    p.line(365, y_linea_firma, 525, y_linea_firma)
+
     p.setFont("Helvetica-Bold", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawCentredString(165, y_firmas - 12, "Mercedes Varela")
-    p.drawCentredString(445, y_firmas - 12, "Jose Holberg Zambrano Gonzalez")
-    p.setFont("Helvetica", 7)
-    p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
-    p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
+    p.drawCentredString(165, y_linea_firma - 12, "Mercedes Varela")
+    p.drawCentredString(445, y_linea_firma - 12, "Jose Holberg Zambrano Gonzalez")
 
+    p.setFont("Helvetica", 7)
+    p.drawCentredString(165, y_linea_firma - 21, "Gerente de Comercio")
+    p.drawCentredString(445, y_linea_firma - 21, "Presidente (E)")
+
+    # --- PIE DE PÁGINA Y QR ---
     tel_fijo, tel_movil = "+58 212 802 8300", "+58 412 619 8651"
     red_social, web_url = "@somosvenezuelaproductiva", "emvepro.gob.ve"
     dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
@@ -510,7 +517,6 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.showPage()
     p.save()
     return response
-
 
 @login_required
 def generar_factura(request, cotizacion_id):
