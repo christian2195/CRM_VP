@@ -6,12 +6,12 @@ class CotizacionForm(forms.ModelForm):
         model = Cotizacion
         fields = ['cliente', 'observaciones', 'fecha_emision', 'validez_dias', 'porcentaje_descuento', 'coletillas']
         widgets = {
-            'cliente': forms.Select(attrs={'class': 'form-select'}),
+            'cliente': forms.Select(attrs={'class': 'form-select select2-cliente'}),
             'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Opcional...'}),
             'fecha_emision': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'validez_dias': forms.NumberInput(attrs={'class': 'form-control'}),
             'porcentaje_descuento': forms.NumberInput(attrs={'class': 'form-control text-end input-calc', 'min': '0', 'max': '100', 'step': '0.01'}),
-            'coletillas': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Escriba las condiciones, garantías o notas de la venta...'
+            'coletillas': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Escriba las condiciones, garantías o notas de la venta...'}),
         }
 
 class ItemCotizacionForm(forms.ModelForm):
@@ -29,7 +29,6 @@ class ItemCotizacionForm(forms.ModelForm):
 class FacturaForm(forms.ModelForm):
     class Meta:
         model = Factura
-        # ¡Aquí está la magia! Se agregó 'coletillas' a la lista para que Django lo renderice
         fields = ['numero_factura', 'numero_control', 'fecha_emision', 'coletillas']
         widgets = {
             'numero_factura': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. 070887'}),
@@ -41,15 +40,13 @@ class FacturaForm(forms.ModelForm):
 class VehiculoForm(forms.ModelForm):
     class Meta:
         model = Vehiculo
-        fields = '__all__' # Queremos todos los campos para las ambulancias
+        fields = '__all__'
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Le ponemos estilo Bootstrap a todas las cajas de texto automáticamente
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control form-control-sm'
             
-        # Algunas cajas específicas necesitan ser tipo 'date' (calendario)
         fechas = ['fecha_liquidacion', 'fecha_facturacion', 'fecha_fin_convenio']
         for fecha in fechas:
             if fecha in self.fields:
@@ -58,10 +55,14 @@ class VehiculoForm(forms.ModelForm):
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = '__all__' # Traemos todos los campos del cliente
+        fields = '__all__'
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Aplicamos el estilo de Bootstrap a todas las cajas de texto
-        for field in self.fields.values():
-            field.widget.attrs['class'] = 'form-control form-control-sm'
+        for field_name, field in self.fields.items():
+            if isinstance(field.widget, forms.Select):
+                field.widget.attrs['class'] = 'form-select'
+            elif isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs['class'] = 'form-check-input'
+            else:
+                field.widget.attrs['class'] = 'form-control'
