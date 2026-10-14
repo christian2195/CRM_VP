@@ -2,10 +2,14 @@
 {% load l10n %}
 
 {% block content %}
+<!-- Incluir Select2 para el buscador inteligente de clientes -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+
 <div class="row mb-4 mt-2 align-items-center">
     <div class="col-md-9">
         <h2 class="fw-bold"><i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i>Nueva Cotización</h2>
-        <p class="text-muted mb-0">Genera un presupuesto comercial asociando clientes, unidades del inventario e ítems personalizados.</p>
+        <p class="text-muted mb-0">Genera un presupuesto con cálculo dinámico de descuentos y notas legales personalizadas.</p>
     </div>
     <div class="col-md-3 text-md-end mt-3 mt-md-0">
         <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary rounded-pill px-4">
@@ -17,15 +21,15 @@
 <form method="POST" id="form-cotizacion">
     {% csrf_token %}
     
-    <!-- Datos Generales de la Cotización -->
+    <!-- Datos Generales -->
     <div class="card shadow-sm border-0 rounded-4 mb-4 overflow-hidden">
         <div class="card-header bg-primary text-white fw-bold py-3">
-            <i class="fa-solid fa-info-circle me-2"></i>Información General del Cliente
+            <i class="fa-solid fa-info-circle me-2"></i>Información General
         </div>
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label small fw-bold text-muted">Cliente</label>
+                    <label class="form-label small fw-bold text-muted">Cliente (Buscador Inteligente)</label>
                     {{ form.cliente }}
                 </div>
                 <div class="col-md-3">
@@ -43,7 +47,7 @@
     <!-- Detalle de Ítems / Vehículos -->
     <div class="card shadow-sm border-0 rounded-4 mb-4 overflow-hidden">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-            <span class="fw-bold"><i class="fa-solid fa-list-check me-2"></i>Detalle de la Cotización</span>
+            <span class="fw-bold"><i class="fa-solid fa-list-check me-2"></i>Detalle de la Venta</span>
             <button type="button" class="btn btn-sm btn-warning fw-bold rounded-pill px-3 shadow-sm" id="agregar-fila">
                 <i class="fa-solid fa-plus me-1"></i> Agregar Línea
             </button>
@@ -53,46 +57,37 @@
                 <table class="table table-hover align-middle mb-0" id="tabla-items">
                     <thead class="table-light small text-uppercase">
                         <tr>
-                            <th style="width: 28%;" class="ps-3">Vehículo Asociado (Opcional)</th>
-                            <th style="width: 29%;">Descripción del Ítem / Servicio</th>
-                            <th style="width: 9%;" class="text-center">Cantidad</th>
-                            <th style="width: 14%;" class="text-end">Precio Unit. ($)</th>
+                            <th style="width: 28%;" class="ps-3">Vehículo (Opcional)</th>
+                            <th style="width: 29%;">Descripción / Servicio</th>
+                            <th style="width: 9%;" class="text-center">Cant.</th>
+                            <th style="width: 14%;" class="text-end">Precio ($)</th>
                             <th style="width: 6%;" class="text-center">IVA</th>
                             <th style="width: 10%;" class="text-end">Subtotal ($)</th>
                             <th style="width: 4%;" class="text-center pe-3"></th>
                         </tr>
                     </thead>
                     <tbody id="contenedor-filas">
-                        <!-- Fila inicial por defecto -->
                         <tr>
                             <td class="ps-3">
                                 <select name="item_vehiculo[]" class="form-select form-select-sm font-monospace select-vehiculo">
                                     <option value="">-- Sin vehículo --</option>
                                     {% for v in vehiculos_disponibles %}
                                     <option value="{{ v.id }}" data-desc="{{ v.marca }} {{ v.modelo }} ({{ v.anio }})">
-                                        [{{ v.placa|default:"S/P" }}] - {{ v.marca }} {{ v.modelo }} ({{ v.anio }}) - NIV: {{ v.serial_carroceria_niv }}
+                                        [{{ v.placa|default:"S/P" }}] - {{ v.marca }} {{ v.modelo }}
                                     </option>
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td>
-                                <input type="text" name="item_descripcion[]" class="form-control form-control-sm desc-input" placeholder="Ej: Unidad base o Placas" required>
-                            </td>
-                            <td>
-                                <input type="number" name="item_cantidad[]" class="form-control form-control-sm text-center cantidad-input input-calc" value="1" min="1" required>
-                            </td>
-                            <td>
-                                <input type="number" step="0.01" name="item_precio[]" class="form-control form-control-sm text-end font-monospace precio-input input-calc" placeholder="0.00" required>
-                            </td>
+                            <td><input type="text" name="item_descripcion[]" class="form-control form-control-sm desc-input" required></td>
+                            <td><input type="number" name="item_cantidad[]" class="form-control form-control-sm text-center cantidad-input input-calc" value="1" min="1" required></td>
+                            <td><input type="number" step="0.01" name="item_precio[]" class="form-control form-control-sm text-end font-monospace precio-input input-calc" placeholder="0.00" required></td>
                             <td class="text-center">
                                 <input type="checkbox" class="form-check-input iva-checkbox input-calc" checked>
                                 <input type="hidden" name="item_iva[]" value="on" class="hidden-iva-val">
                             </td>
                             <td class="text-end fw-bold font-monospace small row-total">0,00</td>
                             <td class="text-center pe-3">
-                                <button type="button" class="btn btn-sm btn-outline-danger rounded-circle eliminar-fila" style="width: 28px; height: 28px; padding: 0;" title="Eliminar fila">
-                                    <i class="fa-solid fa-xmark"></i>
-                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger rounded-circle eliminar-fila" style="width: 28px; height: 28px; padding: 0;"><i class="fa-solid fa-xmark"></i></button>
                             </td>
                         </tr>
                     </tbody>
@@ -100,13 +95,35 @@
             </div>
         </div>
 
-        <!-- Resumen de Totales en Tiempo Real -->
-        <div class="card-footer bg-light py-3 px-4">
-            <div class="row justify-content-end">
-                <div class="col-md-5">
+        <!-- Condiciones Dinámicas y Resumen de Totales -->
+        <div class="card-footer bg-light py-4 px-4">
+            <div class="row">
+                <!-- Columna Izquierda: Coletillas y Notas -->
+                <div class="col-md-7 border-end pe-4">
+                    <label class="fw-bold text-muted small mb-2"><i class="fa-solid fa-file-pen me-1"></i> Condiciones y Notas Legales (Visible en PDF)</label>
+                    {{ form.coletillas }}
+                </div>
+                
+                <!-- Columna Derecha: Totales y Descuento -->
+                <div class="col-md-5 ps-4">
+                    <div class="d-flex justify-content-between mb-2 pb-2 border-bottom align-items-center">
+                        <span class="text-muted fw-bold small">Descuento Global (%):</span>
+                        <div class="input-group input-group-sm w-50 shadow-sm">
+                            {{ form.porcentaje_descuento }}
+                            <span class="input-group-text bg-white fw-bold">%</span>
+                        </div>
+                    </div>
                     <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Subtotal Bruto ($):</span>
+                        <strong class="font-monospace" id="cot-subtotal-bruto">$ 0,00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 text-danger">
+                        <span class="small">Descuento Aplicado ($):</span>
+                        <strong class="font-monospace" id="cot-descuento">- $ 0,00</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1 mt-2 pt-2 border-top">
                         <span class="text-muted small">Base Imponible ($):</span>
-                        <strong class="font-monospace" id="cot-subtotal">$ 0,00</strong>
+                        <strong class="font-monospace" id="cot-base">$ 0,00</strong>
                     </div>
                     <div class="d-flex justify-content-between mb-1">
                         <span class="text-muted small">Monto Exento ($):</span>
@@ -116,8 +133,8 @@
                         <span class="text-muted small">I.V.A (16%) ($):</span>
                         <strong class="font-monospace" id="cot-iva">$ 0,00</strong>
                     </div>
-                    <div class="d-flex justify-content-between border-top pt-2 mt-2">
-                        <span class="fw-bold fs-5">TOTAL PRESUPUESTO:</span>
+                    <div class="d-flex justify-content-between border-top border-2 border-dark pt-2 mt-2">
+                        <span class="fw-bold fs-5">TOTAL GENERAL:</span>
                         <strong class="fs-5 text-primary font-monospace" id="cot-total">$ 0,00</strong>
                     </div>
                 </div>
@@ -125,28 +142,39 @@
         </div>
     </div>
 
-    <!-- Botón de Guardar -->
+    <!-- Botón Guardar -->
     <div class="card shadow-sm border-0 rounded-4 bg-white">
         <div class="card-body text-end py-3">
             <button type="submit" class="btn btn-success btn-lg fw-bold rounded-pill px-5 shadow-sm">
-                <i class="fa-solid fa-floppy-disk me-2"></i> Guardar Cotización
+                <i class="fa-solid fa-floppy-disk me-2"></i> Emitir Cotización
             </button>
         </div>
     </div>
 </form>
 
+<!-- Scripts (Select2 y Cálculos Matemáticos) -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
-function formatearMoneda(valor) {
-    return Number(valor || 0).toLocaleString('es-VE', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+$(document).ready(function() {
+    // 1. Inicializar Buscador de Clientes (Select2)
+    $('.select2-cliente').select2({
+        theme: "bootstrap-5",
+        width: '100%',
+        placeholder: "Seleccione o busque un cliente...",
+        allowClear: true
     });
+});
+
+function formatearMoneda(valor) {
+    return Number(valor || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function calcularTotalesCotizacion() {
     const filas = document.querySelectorAll('#contenedor-filas tr');
-    let baseImponible = 0;
-    let exento = 0;
+    let subtotalBase = 0;
+    let subtotalExento = 0;
 
     filas.forEach(fila => {
         const cant = parseFloat(fila.querySelector('.cantidad-input').value) || 0;
@@ -155,62 +183,58 @@ function calcularTotalesCotizacion() {
         const hiddenIva = fila.querySelector('.hidden-iva-val');
         const aplicaIva = checkbox ? checkbox.checked : true;
 
-        if (hiddenIva) {
-            hiddenIva.value = aplicaIva ? 'on' : 'off';
-        }
+        if (hiddenIva) hiddenIva.value = aplicaIva ? 'on' : 'off';
 
         const subtotal = cant * precio;
         const rowTotal = fila.querySelector('.row-total');
-        if (rowTotal) {
-            rowTotal.textContent = formatearMoneda(subtotal);
-        }
+        if (rowTotal) rowTotal.textContent = formatearMoneda(subtotal);
 
-        if (aplicaIva) {
-            baseImponible += subtotal;
-        } else {
-            exento += subtotal;
-        }
+        if (aplicaIva) { subtotalBase += subtotal; } else { subtotalExento += subtotal; }
     });
 
-    const iva = baseImponible * 0.16;
-    const total = baseImponible + exento + iva;
+    // Leer Descuento
+    const descInput = document.querySelector('input[name="porcentaje_descuento"]');
+    const porcDescuento = descInput ? (parseFloat(descInput.value) || 0) : 0;
+    
+    const subtotalBruto = subtotalBase + subtotalExento;
+    const descBase = subtotalBase * (porcDescuento / 100);
+    const descExento = subtotalExento * (porcDescuento / 100);
+    
+    const baseFinal = subtotalBase - descBase;
+    const exentoFinal = subtotalExento - descExento;
+    const iva = baseFinal * 0.16;
+    const total = baseFinal + exentoFinal + iva;
 
-    document.getElementById('cot-subtotal').textContent = '$ ' + formatearMoneda(baseImponible);
-    document.getElementById('cot-exento').textContent = '$ ' + formatearMoneda(exento);
+    // Actualizar UI
+    document.getElementById('cot-subtotal-bruto').textContent = '$ ' + formatearMoneda(subtotalBruto);
+    document.getElementById('cot-descuento').textContent = '- $ ' + formatearMoneda(descBase + descExento);
+    document.getElementById('cot-base').textContent = '$ ' + formatearMoneda(baseFinal);
+    document.getElementById('cot-exento').textContent = '$ ' + formatearMoneda(exentoFinal);
     document.getElementById('cot-iva').textContent = '$ ' + formatearMoneda(iva);
     document.getElementById('cot-total').textContent = '$ ' + formatearMoneda(total);
 }
 
-// Autocompletar descripción al elegir un vehículo si el campo está vacío
+// Event Listeners Dinámicos
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('input-calc')) calcularTotalesCotizacion();
+});
 document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('input-calc')) calcularTotalesCotizacion();
     if (e.target.classList.contains('select-vehiculo')) {
         const fila = e.target.closest('tr');
         const descInput = fila.querySelector('.desc-input');
-        const selectedOption = e.target.options[e.target.selectedIndex];
-        const descSugerida = selectedOption.getAttribute('data-desc');
-        if (descSugerida && !descInput.value.trim()) {
-            descInput.value = descSugerida;
+        const opt = e.target.options[e.target.selectedIndex];
+        if (opt.getAttribute('data-desc') && !descInput.value.trim()) {
+            descInput.value = opt.getAttribute('data-desc');
         }
     }
-    if (e.target.classList.contains('input-calc')) {
-        calcularTotalesCotizacion();
-    }
 });
-
-document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('input-calc')) {
-        calcularTotalesCotizacion();
-    }
-});
-
 document.getElementById('agregar-fila').addEventListener('click', function() {
     let tbody = document.getElementById('contenedor-filas');
-    let primeraFila = tbody.querySelector('tr');
-    let nuevaFila = primeraFila.cloneNode(true);
+    let nuevaFila = tbody.querySelector('tr').cloneNode(true);
     
     nuevaFila.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => input.value = '');
     nuevaFila.querySelector('.cantidad-input').value = '1';
-    nuevaFila.querySelector('select').value = '';
     nuevaFila.querySelector('.iva-checkbox').checked = true;
     nuevaFila.querySelector('.hidden-iva-val').value = 'on';
     nuevaFila.querySelector('.row-total').textContent = '0,00';
@@ -218,16 +242,13 @@ document.getElementById('agregar-fila').addEventListener('click', function() {
     tbody.appendChild(nuevaFila);
     calcularTotalesCotizacion();
 });
-
 document.addEventListener('click', function(e) {
     if (e.target.closest('.eliminar-fila')) {
         let tbody = document.getElementById('contenedor-filas');
         if (tbody.querySelectorAll('tr').length > 1) {
             e.target.closest('tr').remove();
             calcularTotalesCotizacion();
-        } else {
-            alert('La cotización debe tener al menos una línea.');
-        }
+        } else alert('La cotización debe tener al menos una línea.');
     }
 });
 </script>
