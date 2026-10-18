@@ -1,4 +1,8 @@
 import os
+import io
+from datetime import datetime
+from django.core.management import call_command
+from django.contrib.auth.decorators import user_passes_test
 import openpyxl
 from decimal import Decimal
 from django.conf import settings
@@ -1240,3 +1244,9 @@ def imprimir_certificado_origen(request, factura_id):
     p.showPage()
     p.save()
     return response
+
+from datetime import datetime
+from django.core.management import call_command
+from django.http import HttpResponse
+from django.contrib.auth.decorators import user_passes_test
+    
