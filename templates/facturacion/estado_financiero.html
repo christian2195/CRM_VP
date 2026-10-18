@@ -3,263 +3,196 @@
 
 {% block content %}
 <div class="row mb-4 align-items-center">
-    <div class="col-md-7">
-        <h2 class="fw-bold mb-1" style="letter-spacing: -0.5px;">
-            <i class="fa-solid fa-Vault text-primary me-2"></i>Estado Financiero y Control de Pagos
-        </h2>
-        <p class="text-secondary mb-0">Consolidado de ingresos fiscales, base imponible e historial de cobranza.</p>
+    <div class="col-md-8">
+        <h2 class="fw-bold text-dark mb-0"><i class="fa-solid fa-chart-pie text-success me-2"></i>Estado Financiero y Cobranzas</h2>
+        <p class="text-muted mt-1 mb-0">Monitor de ingresos, métricas de facturación y control de estatus de pagos.</p>
     </div>
-    <div class="col-md-5 text-md-end mt-3 mt-md-0">
-        <a href="{% url 'dashboard' %}" class="btn btn-light border shadow-sm rounded-pill px-4">
-            <i class="fa-solid fa-arrow-left me-1"></i> Volver al Dashboard
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{% url 'exportar_facturas_excel' %}" class="btn btn-success fw-bold shadow-sm rounded-pill px-4">
+            <i class="fa-solid fa-file-excel me-2"></i>Exportar Consolidado
         </a>
     </div>
 </div>
 
-<!-- Tarjetas de Resumen Financiero -->
-<div class="row g-4 mb-4">
+<!-- Tarjetas de Métricas Financieras -->
+<div class="row g-4 mb-5">
     <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-success border-4">
-            <span class="text-secondary fw-semibold text-uppercase small">Total Facturado</span>
-            <div class="h4 fw-bold mt-2 mb-0 font-monospace text-success">Bs. {{ total_facturado|floatformat:"2g" }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-primary border-4">
-            <span class="text-secondary fw-semibold text-uppercase small">Base Imponible</span>
-            <div class="h4 fw-bold mt-2 mb-0 font-monospace">Bs. {{ total_base|floatformat:"2g" }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-info border-4">
-            <span class="text-secondary fw-semibold text-uppercase small">IVA Recaudado (16%)</span>
-            <div class="h4 fw-bold mt-2 mb-0 font-monospace">Bs. {{ total_iva|floatformat:"2g" }}</div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 shadow-sm rounded-4 p-3 bg-white border-start border-warning border-4">
-            <span class="text-secondary fw-semibold text-uppercase small">Por Facturar (Cotizado)</span>
-            <div class="h4 fw-bold mt-2 mb-0 font-monospace">$ {{ monto_pendiente|floatformat:"2g" }}</div>
-        </div>
-    </div>
-</div>
-
-<!-- SISTEMA DE PESTAÑAS (TABS) -->
-<ul class="nav nav-tabs mb-4 border-bottom-0" id="financieroTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active fw-bold border-0 border-bottom border-primary border-3 text-dark bg-transparent px-4 py-2" id="activas-tab" data-bs-toggle="tab" data-bs-target="#activas" type="button" role="tab" aria-controls="activas" aria-selected="true">
-            <i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i>Facturas Activas y Pendientes
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link fw-bold border-0 text-muted bg-transparent px-4 py-2" id="anuladas-tab" data-bs-toggle="tab" data-bs-target="#anuladas" type="button" role="tab" aria-controls="anuladas" aria-selected="false">
-            <i class="fa-solid fa-ban text-danger me-2"></i>Historial de Anuladas
-        </button>
-    </li>
-</ul>
-
-<!-- CONTENIDO DE LAS PESTAÑAS -->
-<div class="tab-content" id="financieroTabsContent">
-    
-    <!-- ==========================================
-         PESTAÑA 1: FACTURAS ACTIVAS 
-         ========================================== -->
-    <div class="tab-pane fade show active" id="activas" role="tabpanel" aria-labelledby="activas-tab">
-        <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white py-3 px-4 border-bottom">
-                <span class="fw-bold text-dark"><i class="fa-solid fa-wallet me-2 text-success"></i>Auditoría y Cobranza de Facturas</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="overflow-x: visible;">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="bg-primary text-white text-uppercase small">
-                            <tr>
-                                <th class="ps-4 py-3">N° Factura</th>
-                                <th class="py-3">Fecha</th>
-                                <th class="py-3">Cliente</th>
-                                <th class="py-3">Estatus de Pago</th>
-                                <th class="py-3">% Pago</th>
-                                <th class="text-end py-3">Total (Bs.)</th>
-                                <th class="text-center py-3 pe-4">Documentos y Cobranza</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for factura in facturas %}
-                                {% if factura.estado_pago != 'ANULADA' and factura.estado_pago != 'CANCELADA' %}
-                                <tr>
-                                    <td class="ps-4 fw-bold text-primary">{{ factura.numero_factura }}</td>
-                                    <td><small class="text-secondary">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
-                                    <td>
-                                        <div class="text-truncate fw-semibold text-dark" style="max-width: 180px;" title="{{ factura.cotizacion.cliente.nombre_razon_social }}">
-                                            {{ factura.cotizacion.cliente.nombre_razon_social }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if factura.estado_pago == 'PAGADA' %}
-                                            <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-3 py-1">Pagada</span>
-                                        {% elif factura.estado_pago == 'PARCIAL' %}
-                                            <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-3 py-1">Pago Parcial</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-3 py-1">Por Pagar</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="progress flex-grow-1" style="height: 6px; width: 60px;">
-                                                <div class="progress-bar {% if factura.porcentaje_pago == 100 %}bg-success{% elif factura.porcentaje_pago > 0 %}bg-warning{% else %}bg-secondary{% endif %}" role="progressbar" style="width: {{ factura.porcentaje_pago }}%;"></div>
-                                            </div>
-                                            <small class="fw-bold font-monospace">{{ factura.porcentaje_pago }}%</small>
-                                        </div>
-                                    </td>
-                                    <td class="text-end font-monospace fw-semibold">Bs. {{ factura.total|floatformat:"2g" }}</td>
-                                    <td class="text-center pe-4">
-                                        <div class="d-flex justify-content-center align-items-center gap-2">
-                                            
-                                            <!-- Desplegable Facturas en Bs. -->
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle rounded-pill px-3" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="fa-solid fa-print me-1"></i> Bs.
-                                                </button>
-                                                <ul class="dropdown-menu shadow border-0 rounded-3 small">
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura' factura.id %}" target="_blank"><i class="fa-solid fa-file-invoice text-primary me-2"></i>Forma Libre (Bs.)</a></li>
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional' factura.id %}" target="_blank"><i class="fa-solid fa-building-columns text-dark me-2"></i>Institucional Con SAP (Bs.)</a></li>
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_sin_sap' factura.id %}" target="_blank"><i class="fa-solid fa-file-circle-exclamation text-warning me-2"></i>Institucional Sin SAP (Bs.)</a></li>
-                                                </ul>
-                                            </div>
-
-                                            <!-- Desplegable Facturas en USD -->
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-outline-info dropdown-toggle rounded-pill px-3" data-bs-toggle="dropdown" aria-expanded="false">
-                                                    <i class="fa-solid fa-dollar-sign me-1"></i> USD
-                                                </button>
-                                                <ul class="dropdown-menu shadow border-0 rounded-3 small">
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-file-invoice-dollar text-info me-2"></i>Forma Libre ($)</a></li>
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-building-columns text-dark me-2"></i>Institucional Con SAP ($)</a></li>
-                                                    <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_sin_sap_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-file-circle-exclamation text-warning me-2"></i>Institucional Sin SAP ($)</a></li>
-                                                </ul>
-                                            </div>
-                                            
-                                            <button class="btn btn-sm btn-warning fw-bold rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPago{{ factura.id }}">
-                                                <i class="fa-solid fa-pen-to-square me-1"></i> Cobro
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endif %}
-                            {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center py-5 text-secondary">
-                                        <i class="fa-solid fa-folder-open fs-2 mb-2 d-block text-black-50 opacity-50"></i>
-                                        No hay facturas registradas en el sistema.
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+        <div class="card border-0 shadow-sm rounded-4 bg-primary text-white h-100">
+            <div class="card-body p-4 position-relative overflow-hidden">
+                <i class="fa-solid fa-sack-dollar position-absolute opacity-10" style="font-size: 5rem; right: -10px; bottom: -10px;"></i>
+                <h6 class="text-uppercase fw-semibold mb-3 opacity-75">Total Facturado General</h6>
+                <h3 class="fw-bold font-monospace mb-0">$ {{ total_facturado|floatformat:"2g" }}</h3>
             </div>
         </div>
     </div>
-
-    <!-- ==========================================
-         PESTAÑA 2: FACTURAS ANULADAS 
-         ========================================== -->
-    <div class="tab-pane fade" id="anuladas" role="tabpanel" aria-labelledby="anuladas-tab">
-        <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-light">
-            <div class="card-header bg-white py-3 px-4 border-bottom">
-                <span class="fw-bold text-dark"><i class="fa-solid fa-ban me-2 text-danger"></i>Historial de Documentos Anulados</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 text-muted">
-                        <thead class="table-secondary text-uppercase small text-secondary">
-                            <tr>
-                                <th class="ps-4 py-3">N° Factura</th>
-                                <th class="py-3">Fecha Emisión</th>
-                                <th class="py-3">Cliente Original</th>
-                                <th class="text-end py-3 pe-4">Monto Fiscal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for factura in facturas %}
-                                {% if factura.estado_pago == 'ANULADA' or factura.estado_pago == 'CANCELADA' %}
-                                <tr>
-                                    <td class="ps-4 fw-bold text-decoration-line-through">{{ factura.numero_factura }}</td>
-                                    <td><small>{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
-                                    <td>
-                                        <div class="text-truncate" style="max-width: 250px;" title="{{ factura.cotizacion.cliente.nombre_razon_social }}">
-                                            {{ factura.cotizacion.cliente.nombre_razon_social }}
-                                        </div>
-                                    </td>
-                                    <td class="text-end pe-4 font-monospace fw-semibold text-danger">Bs. 0,00</td>
-                                </tr>
-                                {% endif %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 border-start border-4 border-info">
+            <div class="card-body p-4">
+                <h6 class="text-uppercase fw-semibold text-muted mb-3">Base Imponible</h6>
+                <h4 class="fw-bold text-dark font-monospace mb-0">$ {{ total_base|floatformat:"2g" }}</h4>
             </div>
         </div>
-        <div class="alert alert-secondary mt-3 d-flex align-items-center rounded-4 shadow-sm border-0" role="alert">
-            <i class="fa-solid fa-circle-info fs-4 me-3 text-secondary"></i>
-            <div class="small">
-                <strong>Nota:</strong> Las facturas anuladas no suman a los reportes financieros. Sus vehículos han sido retornados automáticamente al inventario y las cotizaciones volvieron a estado "Pendiente".
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-white h-100 border-start border-4 border-warning">
+            <div class="card-body p-4">
+                <h6 class="text-uppercase fw-semibold text-muted mb-3">Total Impuestos (IVA 16%)</h6>
+                <h4 class="fw-bold text-dark font-monospace mb-0">$ {{ total_iva|floatformat:"2g" }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 bg-light h-100 border border-secondary-subtle">
+            <div class="card-body p-4">
+                <h6 class="text-uppercase fw-semibold text-muted mb-3">Monto en Cotizaciones</h6>
+                <h4 class="fw-bold text-secondary font-monospace mb-0">$ {{ monto_pendiente|floatformat:"2g" }}</h4>
+                <small class="text-muted d-block mt-1">Por cobrar (Pendiente de Facturar)</small>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modales para Actualizar Pago (Fuera de la tabla para HTML5 válido) -->
-{% for factura in facturas %}
-    {% if factura.estado_pago != 'ANULADA' and factura.estado_pago != 'CANCELADA' %}
-    <div class="modal fade" id="modalPago{{ factura.id }}" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg rounded-4">
-                <form method="POST" action="{% url 'actualizar_pago_factura' factura.id %}">
-                    {% csrf_token %}
-                    <div class="modal-header border-bottom pb-3">
-                        <h5 class="fw-bold text-primary mb-0">Actualizar Cobro - Factura {{ factura.numero_factura }}</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-start py-4">
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold small text-secondary">Estatus de Pago</label>
-                            <select name="estado_pago" class="form-select rounded-3">
-                                <option value="PENDIENTE" {% if factura.estado_pago == 'PENDIENTE' %}selected{% endif %}>Por Pagar</option>
-                                <option value="PARCIAL" {% if factura.estado_pago == 'PARCIAL' %}selected{% endif %}>Pago Parcial</option>
-                                <option value="PAGADA" {% if factura.estado_pago == 'PAGADA' %}selected{% endif %}>Pagada</option>
-                                <option value="ANULADA" {% if factura.estado_pago == 'ANULADA' or factura.estado_pago == 'CANCELADA' %}selected{% endif %} class="text-danger fw-bold">Anular Factura</option>
-                            </select>
+<!-- Tabla de Control de Facturas y Pagos -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-dark fs-5"><i class="fa-solid fa-file-invoice-dollar me-2 text-primary"></i>Libro de Ventas y Cobranzas</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-secondary text-uppercase small">
+                    <tr>
+                        <th class="ps-4 py-3">N° Factura</th>
+                        <th class="py-3">Fecha</th>
+                        <th class="py-3">Cliente</th>
+                        <th class="text-end py-3">Total ($)</th>
+                        <th class="text-center py-3">Estatus de Pago</th>
+                        <th class="text-center py-3 pe-4">Gestión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fac in facturas %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-primary font-monospace">
+                            {{ fac.numero_factura }}
+                            {% if fac.numero_control %}<br><small class="text-muted fw-normal">Ctrl: {{ fac.numero_control }}</small>{% endif %}
+                        </td>
+                        <td>{{ fac.fecha_emision|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="fw-semibold text-dark text-truncate" style="max-width: 200px;" title="{{ fac.cotizacion.cliente.nombre_razon_social }}">
+                                {{ fac.cotizacion.cliente.nombre_razon_social }}
+                            </div>
+                            <small class="text-secondary font-monospace">{{ fac.cotizacion.cliente.tipo_documento }}-{{ fac.cotizacion.cliente.identificacion }}</small>
+                        </td>
+                        <td class="text-end font-monospace fw-semibold">
+                            {% if fac.estado_pago == 'ANULADA' %}
+                                <span class="text-danger text-decoration-line-through">$ 0,00</span>
+                            {% else %}
+                                $ {{ fac.total|floatformat:"2g" }}
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if fac.estado_pago == 'PAGADA' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-3 py-1"><i class="fa-solid fa-check-double me-1"></i>Pagada</span>
+                            {% elif fac.estado_pago == 'PARCIAL' %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info-subtle rounded-pill px-3 py-1"><i class="fa-solid fa-spinner me-1"></i>Parcial ({{ fac.porcentaje_pago }}%)</span>
+                            {% elif fac.estado_pago == 'ANULADA' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-3 py-1"><i class="fa-solid fa-ban me-1"></i>Anulada</span>
+                            {% else %}
+                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-3 py-1"><i class="fa-solid fa-clock me-1"></i>Pendiente</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center pe-4">
+                            <!-- RBAC: Solo Facturación y Gerencia pueden actualizar pagos -->
+                            {% if request.user.is_superuser or 'Facturacion y Cobranza' in request.user.groups.all|stringformat:"s" or 'Gerencia y Presidencia' in request.user.groups.all|stringformat:"s" %}
+                                {% if fac.estado_pago != 'ANULADA' %}
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalPago{{ fac.id }}">
+                                        <i class="fa-solid fa-cash-register me-1"></i> Registrar
+                                    </button>
+                                {% else %}
+                                    <span class="text-muted small"><i class="fa-solid fa-lock me-1"></i>Cerrada</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted small"><i class="fa-solid fa-lock me-1"></i>Solo Lectura</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Modal de Actualización de Pagos -->
+                    {% if fac.estado_pago != 'ANULADA' %}
+                    <div class="modal fade" id="modalPago{{ fac.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content border-0 shadow-lg rounded-4">
+                                <div class="modal-header bg-primary text-white border-0 rounded-top-4">
+                                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-cash-register me-2"></i>Gestión de Cobranza</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form action="{% url 'actualizar_pago_factura' fac.id %}" method="POST">
+                                    {% csrf_token %}
+                                    <div class="modal-body p-4 text-start">
+                                        <div class="alert alert-light border shadow-sm mb-4">
+                                            <p class="mb-1 small text-muted">Factura Fiscal:</p>
+                                            <h5 class="fw-bold text-primary font-monospace mb-0">N° {{ fac.numero_factura }}</h5>
+                                            <hr class="my-2 text-black-50">
+                                            <div class="d-flex justify-content-between">
+                                                <span class="small fw-semibold text-dark">Total a Cobrar:</span>
+                                                <span class="small fw-bold font-monospace text-success">$ {{ fac.total|floatformat:"2g" }}</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold small text-secondary">Estatus del Pago</label>
+                                            <select name="estado_pago" class="form-select border-primary-subtle bg-light fw-semibold text-dark" id="selectEstado{{ fac.id }}" onchange="togglePorcentaje('{{ fac.id }}')">
+                                                <option value="PENDIENTE" {% if fac.estado_pago == 'PENDIENTE' %}selected{% endif %}>Por Pagar (Pendiente)</option>
+                                                <option value="PARCIAL" {% if fac.estado_pago == 'PARCIAL' %}selected{% endif %}>Pago Parcial (Adelanto)</option>
+                                                <option value="PAGADA" {% if fac.estado_pago == 'PAGADA' %}selected{% endif %}>Liquidada (Pagada 100%)</option>
+                                                <option value="ANULADA">Anular Factura (Reversible)</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3" id="divPorcentaje{{ fac.id }}" style="display: {% if fac.estado_pago == 'PARCIAL' %}block{% else %}none{% endif %};">
+                                            <label class="form-label fw-bold small text-secondary">Porcentaje Pagado (%)</label>
+                                            <div class="input-group">
+                                                <input type="number" name="porcentaje_pago" class="form-control" min="1" max="99" value="{{ fac.porcentaje_pago|default:50 }}">
+                                                <span class="input-group-text bg-white"><i class="fa-solid fa-percent text-secondary"></i></span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div id="alertaAnulacion{{ fac.id }}" class="alert alert-danger mt-3 mb-0" style="display: none; font-size: 0.85rem;">
+                                            <i class="fa-solid fa-triangle-exclamation me-1"></i> <strong>Atención:</strong> Al anular esta factura, los montos pasarán a cero y los vehículos asociados regresarán al inventario como 'Disponibles'.
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-0 bg-light rounded-bottom-4">
+                                        <button type="button" class="btn btn-light fw-bold px-4" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary fw-bold shadow-sm px-4">Actualizar Estatus</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label class="form-label fw-semibold small text-secondary">Porcentaje de Pago (0 - 100%)</label>
-                            <input type="number" name="porcentaje_pago" class="form-control rounded-3 font-monospace" min="0" max="100" value="{{ factura.porcentaje_pago }}">
-                        </div>
                     </div>
-                    <div class="modal-footer border-0 pt-0">
-                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cerrar</button>
-                        <button type="submit" class="btn btn-primary rounded-pill px-4">Guardar Cambios</button>
-                    </div>
-                </form>
-            </div>
+                    {% endif %}
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-folder-open fs-2 mb-2 d-block text-black-50 opacity-50"></i>
+                            No hay facturas registradas en el sistema.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
-    {% endif %}
-{% endfor %}
+</div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        var tabs = document.querySelectorAll('#financieroTabs .nav-link');
-        tabs.forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                tabs.forEach(t => {
-                    t.classList.remove('border-bottom', 'border-primary', 'border-3', 'text-dark');
-                    t.classList.add('border-0', 'text-muted');
-                });
-                this.classList.remove('border-0', 'text-muted');
-                this.classList.add('border-bottom', 'border-primary', 'border-3', 'text-dark');
-            });
-        });
-    });
+    function togglePorcentaje(id) {
+        var select = document.getElementById('selectEstado' + id);
+        var divPorc = document.getElementById('divPorcentaje' + id);
+        var alertaAnul = document.getElementById('alertaAnulacion' + id);
+        
+        divPorc.style.display = select.value === 'PARCIAL' ? 'block' : 'none';
+        alertaAnul.style.display = select.value === 'ANULADA' ? 'block' : 'none';
+    }
 </script>
 {% endblock %}
