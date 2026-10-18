@@ -10,13 +10,24 @@
         <p class="text-secondary mb-0">Listado general de presupuestos comerciales emitidos y control de anulaciones.</p>
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0">
-        <a href="{% url 'crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4">
-            <i class="fa-solid fa-plus me-1"></i> Nueva Cotización
-        </a>
+        <!-- Verificación Segura (Comercio y Gerencia) -->
+        {% if request.user.is_superuser %}
+            <a href="{% url 'crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4">
+                <i class="fa-solid fa-plus me-1"></i> Nueva Cotización
+            </a>
+        {% else %}
+            {% for g in request.user.groups.all %}
+                {% if g.name == 'Comercio y Ventas' or g.name == 'Gerencia y Presidencia' %}
+                    <a href="{% url 'crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-4">
+                        <i class="fa-solid fa-plus me-1"></i> Nueva Cotización
+                    </a>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
     </div>
 </div>
 
-<!-- Barra de Búsqueda -->
+<!-- ... (El resto del formulario de búsqueda y pestañas se mantiene igual) ... -->
 <form method="GET" class="row g-3 mb-4">
     <div class="col-md-10">
         <div class="input-group shadow-sm rounded-pill overflow-hidden bg-white">
@@ -29,7 +40,6 @@
     </div>
 </form>
 
-<!-- SISTEMA DE PESTAÑAS (TABS) -->
 <ul class="nav nav-tabs mb-4 border-bottom-0" id="cotizacionTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active fw-bold border-0 border-bottom border-primary border-3 text-dark bg-transparent px-4 py-2" id="activas-tab" data-bs-toggle="tab" data-bs-target="#activas" type="button" role="tab" aria-controls="activas" aria-selected="true">
@@ -43,12 +53,7 @@
     </li>
 </ul>
 
-<!-- CONTENIDO DE LAS PESTAÑAS -->
 <div class="tab-content" id="cotizacionTabsContent">
-    
-    <!-- ==========================================
-         PESTAÑA 1: COTIZACIONES ACTIVAS / FACTURADAS
-         ========================================== -->
     <div class="tab-pane fade show active" id="activas" role="tabpanel" aria-labelledby="activas-tab">
         <div class="card border-0 shadow-sm rounded-4">
             <div class="card-body p-0">
@@ -92,20 +97,33 @@
                                     <td class="text-end font-monospace fw-semibold">$ {{ cot.total|floatformat:"2g" }}</td>
                                     <td class="text-center pe-4">
                                         <div class="d-flex justify-content-center align-items-center gap-1 flex-wrap">
-                                            <!-- Botón PDF Cotización -->
                                             <a href="{% url 'imprimir_cotizacion' cot.id %}" target="_blank" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Descargar Presupuesto PDF">
                                                 <i class="fa-solid fa-file-pdf me-1"></i> PDF
                                             </a>
                                             
                                             {% if cot.estado != 'F' %}
-                                                <!-- Botón Facturar -->
-                                                <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-warning fw-bold text-dark rounded-pill px-3" title="Emitir Factura Fiscal">
-                                                    <i class="fa-solid fa-file-invoice me-1"></i> Facturar
-                                                </a>
-                                                <!-- Botón Anular Cotización -->
-                                                <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Anular Cotización" onclick="return confirm('¿Estás seguro de anular la cotización VP-{{ cot.id }}? Los vehículos apartados volverán a estar disponibles.');">
-                                                    <i class="fa-solid fa-ban me-1"></i> Anular
-                                                </a>
+                                                <!-- Verificación Segura para Facturar (Gerencia y Facturación) -->
+                                                {% if request.user.is_superuser %}
+                                                    <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-warning fw-bold text-dark rounded-pill px-3" title="Emitir Factura Fiscal">
+                                                        <i class="fa-solid fa-file-invoice me-1"></i> Facturar
+                                                    </a>
+                                                    <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Anular Cotización" onclick="return confirm('¿Estás seguro de anular la cotización VP-{{ cot.id }}? Los vehículos apartados volverán a estar disponibles.');">
+                                                        <i class="fa-solid fa-ban me-1"></i> Anular
+                                                    </a>
+                                                {% else %}
+                                                    {% for g in request.user.groups.all %}
+                                                        {% if g.name == 'Facturacion y Cobranza' or g.name == 'Gerencia y Presidencia' %}
+                                                            <a href="{% url 'generar_factura' cot.id %}" class="btn btn-sm btn-warning fw-bold text-dark rounded-pill px-3" title="Emitir Factura Fiscal">
+                                                                <i class="fa-solid fa-file-invoice me-1"></i> Facturar
+                                                            </a>
+                                                        {% endif %}
+                                                        {% if g.name == 'Gerencia y Presidencia' %}
+                                                            <a href="{% url 'eliminar_cotizacion' cot.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Anular Cotización" onclick="return confirm('¿Estás seguro de anular la cotización VP-{{ cot.id }}? Los vehículos apartados volverán a estar disponibles.');">
+                                                                <i class="fa-solid fa-ban me-1"></i> Anular
+                                                            </a>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                {% endif %}
                                             {% elif cot.factura %}
                                                 <!-- Desplegable Facturas en Bs. -->
                                                 <div class="btn-group" role="group">
@@ -150,9 +168,7 @@
         </div>
     </div>
 
-    <!-- ==========================================
-         PESTAÑA 2: COTIZACIONES ANULADAS
-         ========================================== -->
+    <!-- ... (La pestaña de anuladas queda igual) ... -->
     <div class="tab-pane fade" id="anuladas" role="tabpanel" aria-labelledby="anuladas-tab">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden bg-light">
             <div class="card-header bg-white py-3 px-4 border-bottom">
