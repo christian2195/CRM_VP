@@ -2,7 +2,10 @@ from django.contrib import admin
 from django.utils.html import format_html
 from decimal import Decimal
 from .models import Cliente, Vehiculo, Cotizacion, ItemCotizacion, Factura
+from django.contrib.auth.models import User, Group
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
+admin.site.unregister(User)
 # --- TÍTULOS INSTITUCIONALES DEL PANEL ---
 admin.site.site_header = "EMVEPRO C.A. — Administración Central CRM v3.0"
 admin.site.site_title = "Panel Admin CRM EMVEPRO"
@@ -230,3 +233,39 @@ class FacturaAdmin(admin.ModelAdmin):
     @admin.display(description='Total (Bs.)')
     def total_bs_fmt(self, obj):
         return format_html('<strong style="font-family: monospace; color: #273376;">Bs. {}</strong>', fmt_ve(obj.total))
+
+@admin.register(User)
+class CustomUserAdmin(BaseUserAdmin):
+    list_display = ('username', 'nombre_completo', 'email', 'roles_badges', 'is_active', 'is_staff')
+    list_filter = ('groups', 'is_staff', 'is_superuser', 'is_active')
+    search_fields = ('username', 'first_name', 'last_name', 'email')
+    ordering = ('username',)
+
+    @admin.display(description='Funcionario')
+    def nombre_completo(self, obj):
+        nombre = f"{obj.first_name} {obj.last_name}".strip()
+        return nombre if nombre else obj.username
+
+    @admin.display(description='Rol / Departamento Asignado')
+    def roles_badges(self, obj):
+        if obj.is_superuser:
+            return format_html(
+                '<span style="background:#273376; color:#ffcc00; padding:3px 10px; border-radius:12px; font-weight:bold; font-size:11px;">Administrador TI (Superusuario)</span>'
+            )
+        grupos = obj.groups.all()
+        if not grupos:
+            return format_html('<span style="color:#6c757d; font-size:11px;">Sin rol asignado</span>')
+        
+        colores_rol = {
+            'Gerencia y Presidencia': ('#cfe2ff', '#084298'),
+            'Comercio y Ventas': ('#d1e7dd', '#0f5132'),
+            'Facturacion y Cobranza': ('#fff3cd', '#664d03'),
+            'Logistica e Inventario': ('#e2e3e5', '#41464b'),
+        }
+        etiquetas = []
+        for g in grupos:
+            bg, fg = colores_rol.get(g.name, ('#eef2ff', '#273376'))
+            etiquetas.append(
+                f'<span style="background:{bg}; color:{fg}; padding:3px 10px; border-radius:12px; font-weight:bold; font-size:11px; margin-right:4px;">{g.name}</span>'
+            )
+        return format_html("".join(etiquetas))
