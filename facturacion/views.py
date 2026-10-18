@@ -43,9 +43,10 @@ def requiere_rol(roles_permitidos):
         return _wrapped_view
     return decorator
 
-ROLES_INVENTARIO = ['Gerencia y Presidencia', 'Logistica e Inventario']
-ROLES_COMERCIO = ['Gerencia y Presidencia', 'Comercio y Ventas']
-ROLES_FACTURACION = ['Gerencia y Presidencia', 'Facturacion y Cobranza']
+ROLES_INVENTARIO = ['Gerencia y Presidencia', 'Division de Vehiculos']
+ROLES_COMERCIO = ['Gerencia y Presidencia', 'Division de Vehiculos']
+ROLES_FACTURACION = ['Gerencia y Presidencia', 'Division de Facturacion']
+ROLES_FINANZAS = ['Gerencia y Presidencia', 'Gerencia de Administracion']
 
 # ==========================================
 # UTILIDADES Y HELPERS
