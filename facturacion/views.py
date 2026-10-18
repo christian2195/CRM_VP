@@ -68,13 +68,31 @@ def obtener_factor_bs(factura, cotizacion):
 
 @login_required
 def dashboard(request):
-    facturas_recientes = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision')[:5]
+    # --- Métricas Financieras y Facturación ---
+    facturas_recientes = Factura.objects.select_related('cotizacion__cliente').order_by('-fecha_emision', '-numero_factura')[:5]
+    total_facturado = Factura.objects.aggregate(Sum('total'))['total__sum'] or Decimal('0.00')
+
+    # --- Métricas de Cotizaciones y Comercio ---
     cotizaciones_activas = Cotizacion.objects.exclude(estado__in=['F', 'A']).count()
-    cotizaciones_pendientes = Cotizacion.objects.exclude(estado__in=['F', 'A']).order_by('-fecha_creacion')
+    cotizaciones_pendientes = Cotizacion.objects.exclude(estado__in=['F', 'A']).order_by('-fecha_creacion')[:5]
+    total_clientes = Cliente.objects.count()
+
+    # --- Métricas de Inventario y Logística ---
+    vehiculos_disponibles = Vehiculo.objects.filter(estado='Disponible').count()
+    vehiculos_apartados = Vehiculo.objects.filter(estado='Apartado').count()
+    vehiculos_vendidos = Vehiculo.objects.filter(estado='Vendido').count()
+    vehiculos_recientes = Vehiculo.objects.all().order_by('-id')[:5]
+
     return render(request, 'facturacion/dashboard.html', {
-        'facturas': facturas_recientes,
+        'facturas_recientes': facturas_recientes,
+        'total_facturado': total_facturado,
         'cotizaciones_activas': cotizaciones_activas,
         'cotizaciones_pendientes': cotizaciones_pendientes,
+        'total_clientes': total_clientes,
+        'vehiculos_disponibles': vehiculos_disponibles,
+        'vehiculos_apartados': vehiculos_apartados,
+        'vehiculos_vendidos': vehiculos_vendidos,
+        'vehiculos_recientes': vehiculos_recientes,
     })
 
 @login_required
