@@ -2,7 +2,7 @@ import os
 import io
 from datetime import datetime
 from django.core.management import call_command
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.decorators import user_passes_test, login_required
 import openpyxl
 from decimal import Decimal
 from django.conf import settings
@@ -12,7 +12,6 @@ from django.utils import timezone
 from django.db import transaction
 from django.contrib import messages 
 from django.db.models import Q, Sum, Prefetch
-from django.contrib.auth.decorators import login_required
 from functools import wraps
 
 from reportlab.platypus import Table, TableStyle
@@ -1245,8 +1244,38 @@ def imprimir_certificado_origen(request, factura_id):
     p.save()
     return response
 
-from datetime import datetime
-from django.core.management import call_command
-from django.http import HttpResponse
-from django.contrib.auth.decorators import user_passes_test
+# ==========================================
+# MANTENIMIENTO Y RESPALDOS (SOLO ADMIN TI)
+# ==========================================
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser, login_url='dashboard')
+def descargar_respaldo_db(request):
+    """
+    Genera un archivo JSON con toda la base de datos excluyendo tablas 
+    temporales o autogeneradas para evitar conflictos de integridad al restaurar.
+    """
+    output = io.StringIO()
+    
+    # Ejecuta el comando dumpdata internamente
+    call_command(
+        'dumpdata', 
+        format='json', 
+        indent=4, 
+        stdout=output,
+        # Excluimos sesiones, logs y permisos que Django regenera automáticamente
+        exclude=['contenttypes', 'auth.permission', 'admin.logentry', 'sessions.session']
+    )
+    
+    output.seek(0)
+    fecha_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+    nombre_archivo = f'EMVEPRO_Backup_Full_{fecha_str}.json'
+    
+    response = HttpResponse(output.read(), content_type='application/json')
+    response['Content-Disposition'] = f'attachment; filename="{nombre_archivo}"'
+    
+    # Registro de auditoría silencioso
+    print(f"[{fecha_str}] El administrador {request.user.username} descargó un backup general.")
+    
+    return response
     
