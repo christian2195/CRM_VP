@@ -1,98 +1,119 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Variable segura para comprobar si tiene permisos de edición -->
+{% setvar permiso_inventario=False %}
+{% if request.user.is_superuser %}
+    {% setvar permiso_inventario=True %}
+{% endif %}
+{% for g in request.user.groups.all %}
+    {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
+        {% setvar permiso_inventario=True %}
+    {% endif %}
+{% endfor %}
+
 <div class="row mb-4 align-items-center">
     <div class="col-md-6">
-        <h2 class="fw-bold"><i class="fa-solid fa-warehouse text-primary me-2"></i>Inventario de Vehículos</h2>
-        <p class="text-muted mb-0">Consulta de unidades disponibles, especificaciones técnicas y datos aduaneros.</p>
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-warehouse text-secondary me-2"></i>Parque Automotor</h2>
+        <p class="text-muted mb-0">Control de inventario de vehículos, estatus de asignación y datos de nacionalización.</p>
     </div>
-    <div class="col-md-6 text-end d-flex align-items-center justify-content-end gap-2 flex-wrap">
-        <a href="{% url 'exportar_inventario' %}" class="btn btn-outline-success fw-bold shadow-sm">
-            <i class="fa-solid fa-file-excel me-1"></i> Exportar Excel
+    <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-md-end gap-2 flex-wrap">
+        <form method="GET" action="{% url 'lista_vehiculos' %}" class="d-flex gap-2">
+            <div class="input-group shadow-sm rounded-pill overflow-hidden">
+                <span class="input-group-text bg-white border-0 ps-3"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
+                <input type="text" name="q" value="{{ request.GET.q }}" class="form-control border-0" placeholder="Buscar placa, serial o modelo...">
+            </div>
+        </form>
+        <a href="{% url 'exportar_inventario_excel' %}" class="btn btn-success fw-bold shadow-sm rounded-pill px-3" title="Exportar Todo a Excel">
+            <i class="fa-solid fa-file-excel"></i>
         </a>
-        <a href="{% url 'importar_inventario' %}" class="btn btn-outline-primary fw-bold shadow-sm">
-            <i class="fa-solid fa-upload me-1"></i> Importar Masivo
-        </a>
-        <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm">
-            <i class="fa-solid fa-plus me-1"></i> Nuevo Vehículo
-        </a>
+        
+        <!-- Verificación Segura -->
+        {% if request.user.is_superuser %}
+            <a href="{% url 'importar_inventario' %}" class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" title="Carga Masiva Excel">
+                <i class="fa-solid fa-upload me-1"></i> Importar
+            </a>
+            <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
+                <i class="fa-solid fa-plus me-1"></i> Nuevo
+            </a>
+        {% else %}
+            {% for g in request.user.groups.all %}
+                {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
+                    <a href="{% url 'importar_inventario' %}" class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" title="Carga Masiva Excel">
+                        <i class="fa-solid fa-upload me-1"></i> Importar
+                    </a>
+                    <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
+                        <i class="fa-solid fa-plus me-1"></i> Nuevo
+                    </a>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
     </div>
 </div>
 
-<!-- Barra de Búsqueda Rápida por Texto -->
-<form method="GET" class="row g-3 mb-4">
-    <div class="col-md-10">
-        <div class="input-group shadow-sm">
-            <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-search text-muted"></i></span>
-            <input type="text" name="q" class="form-control border-start-0" placeholder="Buscar por marca, modelo, placa o serial NIV..." value="{{ request.GET.q|default:'' }}">
-        </div>
-    </div>
-    <div class="col-md-2 d-grid">
-        <button type="submit" class="btn btn-primary fw-bold shadow-sm">Filtrar</button>
-    </div>
-</form>
-
-<div class="card shadow-sm border-0">
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
+                <thead class="bg-primary text-white text-uppercase small">
                     <tr>
-                        <th class="ps-4">Unidad</th>
-                        <th>Identificación</th>
-                        <th>Especificaciones</th>
-                        <th>Clase / Tipo</th>
-                        <th class="text-center">Origen</th>
-                        <th class="text-center pe-4">Acciones</th>
+                        <th class="ps-4 py-3">Placa / Serial NIV</th>
+                        <th class="py-3">Marca y Modelo</th>
+                        <th class="py-3">Año / Color</th>
+                        <th class="py-3">Estatus</th>
+                        <th class="text-center py-3 pe-4">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for vehiculo in vehiculos %}
                     <tr>
                         <td class="ps-4">
-                            <div class="d-flex flex-column">
-                                <span class="fw-bold text-dark">{{ vehiculo.marca }} {{ vehiculo.modelo }}</span>
-                                <small class="text-muted">Año: {{ vehiculo.anio }} | Color: {{ vehiculo.color|default:"N/E" }}</small>
-                            </div>
+                            <div class="fw-bold font-monospace text-dark">[{{ vehiculo.placa|default:"S/P" }}]</div>
+                            <small class="text-secondary font-monospace" title="Serial NIV">{{ vehiculo.serial_carroceria_niv }}</small>
                         </td>
                         <td>
-                            <div class="d-flex flex-column">
-                                <span class="badge bg-secondary mb-1 align-self-start" style="font-size: 0.8rem;">
-                                    Placa: {{ vehiculo.placa|default:"S/P" }}
-                                </span>
-                                <small class="font-monospace text-muted" title="NIV/Carrocería">NIV: {{ vehiculo.serial_carroceria_niv|default:"N/E" }}</small>
-                            </div>
+                            <div class="fw-bold text-primary">{{ vehiculo.marca }}</div>
+                            <small class="text-dark fw-semibold">{{ vehiculo.modelo }}</small>
                         </td>
                         <td>
-                            <div class="d-flex flex-column small">
-                                <span><i class="fa-solid fa-gas-pump text-muted me-1"></i> {{ vehiculo.tipo_combustible|default:"N/E" }} | Trans: {{ vehiculo.transmision|default:"N/E" }}</span>
-                                <span><i class="fa-solid fa-weight-hanging text-muted me-1"></i> Tara: {{ vehiculo.peso_tara }}Kg | Carga: {{ vehiculo.capacidad_carga }}Kg</span>
-                            </div>
+                            <div class="text-dark fw-semibold">{{ vehiculo.anio }}</div>
+                            <small class="text-secondary">{{ vehiculo.color }}</small>
                         </td>
                         <td>
-                            <div class="d-flex flex-column">
-                                <span class="fw-medium">{{ vehiculo.clase|default:"N/E" }}</span>
-                                <small class="text-muted">{{ vehiculo.tipo|default:"N/E" }} ({{ vehiculo.uso|default:"N/E" }})</small>
-                            </div>
-                        </td>
-                        <td class="text-center">
-                            {% if vehiculo.certificado_origen %}
-                                <span class="badge bg-success-subtle text-success border border-success-subtle" title="Certificado: {{ vehiculo.certificado_origen }}">Importado</span>
+                            {% if vehiculo.estado == 'Disponible' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-3 py-1">Disponible</span>
+                            {% elif vehiculo.estado == 'Apartado' %}
+                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-3 py-1">Apartado</span>
+                            {% elif vehiculo.estado == 'Vendido' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-3 py-1">Vendido</span>
                             {% else %}
-                                <span class="badge bg-light text-secondary border">Nacional</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-3 py-1">{{ vehiculo.estado }}</span>
                             {% endif %}
                         </td>
                         <td class="text-center pe-4">
-                            <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-outline-primary" title="Editar Detalles">
-                                <i class="fa-solid fa-pen"></i>
-                            </a>
+                            <!-- Verificación Segura -->
+                            {% if request.user.is_superuser %}
+                                <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-light border rounded-circle shadow-sm" style="width: 32px; height: 32px;" title="Editar Unidad">
+                                    <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                </a>
+                            {% else %}
+                                {% for g in request.user.groups.all %}
+                                    {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
+                                        <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-light border rounded-circle shadow-sm" style="width: 32px; height: 32px;" title="Editar Unidad">
+                                            <i class="fa-solid fa-pen-to-square text-primary"></i>
+                                        </a>
+                                    {% endif %}
+                                {% empty %}
+                                    <span class="text-muted small"><i class="fa-solid fa-lock me-1"></i>Solo Lectura</span>
+                                {% endfor %}
+                            {% endif %}
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center py-5 text-muted">
-                            <i class="fa-solid fa-car-side fs-2 mb-3 d-block text-black-50"></i>
-                            No hay vehículos registrados en el inventario.
+                        <td colspan="5" class="text-center py-5 text-secondary">
+                            <i class="fa-solid fa-car-side fs-2 mb-2 d-block text-black-50 opacity-50"></i>
+                            No se encontraron vehículos en el inventario.
                         </td>
                     </tr>
                     {% endfor %}
