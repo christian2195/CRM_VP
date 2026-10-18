@@ -14,24 +14,51 @@
 </div>
 
 <!-- ========================================== -->
-<!-- MÓDULO DE RESPALDO (SOLO ADMIN TI)         -->
+<!-- MÓDULOS DE RESPALDO (SOLO ADMIN TI)        -->
 <!-- ========================================== -->
 {% if request.user.is_superuser %}
-<div class="card border-0 shadow-sm rounded-4 mb-4 border-start border-4 border-danger bg-white">
-    <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
-        <div>
-            <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-cloud-arrow-down text-danger me-2"></i>Respaldo Completo del Sistema</h5>
-            <p class="text-muted small mb-0">Descarga un snapshot (volcado en formato JSON) con todos los registros de usuarios, clientes, inventario y facturación. Útil para recuperación ante desastres o migración de servidor.</p>
+<div class="row g-4 mb-4">
+    <!-- Tarjeta de Descarga (Exportar) -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100 border-start border-4 border-primary bg-white">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-down text-primary me-2"></i>Exportar Respaldo</h5>
+                    <p class="text-muted small mb-4">Descarga un snapshot completo de la base de datos en formato JSON. Incluye usuarios, clientes, facturas y parque automotor.</p>
+                </div>
+                <div class="text-end">
+                    <a href="{% url 'descargar_respaldo_db' %}" class="btn btn-primary fw-bold rounded-pill shadow-sm px-4 w-100">
+                        <i class="fa-solid fa-download me-2"></i>Generar Backup (.json)
+                    </a>
+                </div>
+            </div>
         </div>
-        <div class="text-md-end">
-            <a href="{% url 'descargar_respaldo_db' %}" class="btn btn-danger fw-bold rounded-pill shadow-sm px-4 text-nowrap">
-                <i class="fa-solid fa-download me-2"></i>Generar Backup
-            </a>
+    </div>
+
+    <!-- Tarjeta de Subida (Restaurar) -->
+    <div class="col-md-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100 border-start border-4 border-danger bg-white">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+                <div>
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cloud-arrow-up text-danger me-2"></i>Restaurar Sistema</h5>
+                    <p class="text-muted small mb-3">Sube un archivo de respaldo para inyectar la información. <strong class="text-danger">Advertencia:</strong> Esto sobreescribirá registros duplicados.</p>
+                </div>
+                <form action="{% url 'subir_respaldo_db' %}" method="POST" enctype="multipart/form-data" class="mt-auto">
+                    {% csrf_token %}
+                    <div class="input-group input-group-sm mb-1 shadow-sm rounded-pill overflow-hidden">
+                        <input type="file" name="archivo_respaldo" class="form-control border-danger-subtle bg-light" accept=".json" required>
+                        <button type="submit" class="btn btn-danger fw-bold px-3" onclick="return confirm('ATENCIÓN: Estás a punto de sobreescribir la base de datos actual. ¿Estás absolutamente seguro de continuar?');">
+                            <i class="fa-solid fa-upload me-1"></i> Subir
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 {% endif %}
 
+<!-- Resto del Dashboard Técnico (Tablas Registradas) -->
 <div class="row g-4">
     <!-- Tarjeta de Detalles Técnicos -->
     <div class="col-md-4">
