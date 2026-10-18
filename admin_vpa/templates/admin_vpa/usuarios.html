@@ -2,35 +2,64 @@
 
 {% block content %}
 <div class="row mb-4 align-items-center">
-    <div class="col-md-7">
-        <h2 class="fw-bold text-dark"><i class="fa-solid fa-users-gear text-primary me-2"></i>Gestión de Usuarios y Accesos</h2>
-        <p class="text-muted mb-0">Control de personal autorizado, roles y niveles de seguridad del sistema.</p>
+    <div class="col-md-6">
+        <h2 class="fw-bold text-dark"><i class="fa-solid fa-users-gear text-primary me-2"></i>Gestión de Usuarios y Roles</h2>
+        <p class="text-muted mb-0">Control de personal autorizado, roles departamentales y niveles de seguridad.</p>
     </div>
-    <div class="col-md-5 text-md-end mt-3 mt-md-0">
-        <a href="{% url 'admin_vpa:index' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3 me-2">
+    <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex justify-content-md-end gap-2 flex-wrap">
+        <a href="{% url 'admin_vpa:index' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3">
             <i class="fa-solid fa-arrow-left me-1"></i> Volver al Panel
         </a>
-        <!-- Enlace rápido para crear usuario desde el Admin nativo -->
-        <a href="/admin/auth/user/add/" target="_blank" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
+        <a href="{% url 'admin_vpa:inicializar_roles' %}" class="btn btn-warning fw-bold shadow-sm rounded-pill px-3" title="Crea o repara los 4 roles institucionales de EMVEPRO">
+            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Sincronizar Roles
+        </a>
+        <a href="{% url 'admin_vpa:crear_usuario' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
             <i class="fa-solid fa-user-plus me-1"></i> Nuevo Usuario
         </a>
     </div>
 </div>
 
+<!-- Tarjetas de Roles Institucionales Activos -->
+<div class="row g-3 mb-4">
+    {% for g in grupos %}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm rounded-4 h-100 p-3 bg-white border-start border-primary border-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-primary small text-uppercase">{{ g.name }}</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">{{ g.user_set.count }} Usuarios</span>
+            </div>
+            <small class="text-muted mt-2 d-block">{{ g.permissions.count }} permisos asignados</small>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-warning rounded-4 border-0 shadow-sm d-flex align-items-center justify-content-between">
+            <div>
+                <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                <strong>No se han inicializado los Roles Institucionales.</strong> Haz clic en "Sincronizar Roles" para crear los perfiles de Gerencia, Comercio, Facturación y Logística.
+            </div>
+            <a href="{% url 'admin_vpa:inicializar_roles' %}" class="btn btn-sm btn-primary rounded-pill px-3 fw-bold">Inicializar Ahora</a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-    <div class="card-header bg-white py-3">
-        <span class="fw-bold text-dark"><i class="fa-solid fa-address-card text-secondary me-2"></i>Lista de Usuarios Registrados</span>
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <span class="fw-bold text-dark"><i class="fa-solid fa-address-card text-secondary me-2"></i>Lista de Funcionarios Registrados</span>
+        <span class="badge bg-light text-secondary border rounded-pill px-3">{{ usuarios.count }} cuentas</span>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light text-uppercase fs-7 text-secondary">
+                <thead class="bg-primary text-white text-uppercase small">
                     <tr>
-                        <th class="ps-4">Usuario</th>
-                        <th>Nombre y Apellido</th>
-                        <th>Correo Electrónico</th>
-                        <th>Rol / Estado</th>
-                        <th class="text-end pe-4">Acciones</th>
+                        <th class="ps-4 py-3">Usuario</th>
+                        <th class="py-3">Nombre y Apellido</th>
+                        <th class="py-3">Correo Electrónico</th>
+                        <th class="py-3">Rol Institucional Asignado</th>
+                        <th class="py-3">Nivel / Estado</th>
+                        <th class="text-end pe-4 py-3">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -38,37 +67,59 @@
                     <tr>
                         <td class="ps-4 fw-bold text-dark">
                             <div class="d-flex align-items-center gap-2">
-                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 13px;">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 32px; height: 32px; font-size: 13px;">
                                     {{ u.username|first|upper }}
                                 </div>
                                 {{ u.username }}
                             </div>
                         </td>
-                        <td>{{ u.first_name }} {{ u.last_name|default:"(No especificado)" }}</td>
-                        <td><span class="text-secondary">{{ u.email|default:"Sin correo" }}</span></td>
+                        <td>
+                            {% if u.first_name or u.last_name %}
+                                <span class="fw-semibold text-dark">{{ u.first_name }} {{ u.last_name }}</span>
+                            {% else %}
+                                <span class="text-muted small">(No especificado)</span>
+                            {% endif %}
+                        </td>
+                        <td><span class="text-secondary small">{{ u.email|default:"Sin correo" }}</span></td>
+                        <td>
+                            {% if u.is_superuser %}
+                                <span class="badge bg-primary text-warning rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-crown me-1"></i>Admin TI (Control Total)
+                                </span>
+                            {% else %}
+                                {% for grupo in u.groups.all %}
+                                    <span class="badge bg-info bg-opacity-10 text-primary border border-primary-subtle rounded-pill px-3 py-1 me-1">
+                                        <i class="fa-solid fa-user-tag me-1"></i>{{ grupo.name }}
+                                    </span>
+                                {% empty %}
+                                    <span class="badge bg-light text-secondary border rounded-pill px-2">Sin rol asignado</span>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
                         <td>
                             {% if u.is_superuser %}
                                 <span class="badge bg-danger bg-opacity-10 text-danger border border-danger-subtle rounded-pill px-2">Superusuario</span>
                             {% elif u.is_staff %}
-                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning-subtle rounded-pill px-2">Staff / Personal</span>
+                                <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-2">Staff</span>
                             {% else %}
-                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-2">Estándar</span>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary-subtle rounded-pill px-2">Operador</span>
                             {% endif %}
                             
-                            {% if not u.is_active %}
+                            {% if u.is_active %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success-subtle rounded-pill px-2 ms-1">Activo</span>
+                            {% else %}
                                 <span class="badge bg-dark rounded-pill px-2 ms-1">Inactivo</span>
                             {% endif %}
                         </td>
                         <td class="text-end pe-4">
-                            <!-- Enlace actualizado al formulario propio de edición -->
-                            <a href="{% url 'admin_vpa:editar_usuario' u.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Editar en Panel Propio">
-                                <i class="fa-solid fa-pen-to-square me-1"></i> Editar
+                            <a href="{% url 'admin_vpa:editar_usuario' u.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold" title="Configurar Rol y Permisos">
+                                <i class="fa-solid fa-pen-to-square me-1"></i> Configurar
                             </a>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-secondary">No hay usuarios registrados.</td>
+                        <td colspan="6" class="text-center py-4 text-secondary">No hay usuarios registrados.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
