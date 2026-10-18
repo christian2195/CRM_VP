@@ -657,7 +657,7 @@ def generar_factura(request, cotizacion_id):
     })
 
 @login_required
-@requiere_rol(ROLES_FACTURACION)
+@requiere_rol(ROLES_FINANZAS)
 def actualizar_pago_factura(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     if request.method == 'POST':
