@@ -6,9 +6,10 @@ from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.db import transaction
-from django.contrib import messages
+from django.contrib import messages 
 from django.db.models import Q, Sum, Prefetch
 from django.contrib.auth.decorators import login_required
+from functools import wraps
 
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
@@ -17,10 +18,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.graphics.barcode import qr
 from reportlab.graphics.shapes import Drawing
 
-from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente
+from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente 
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
-from django.core.exceptions import PermissionDenied
-from functools import wraps
 
 # ==========================================
 # CONTROL DE ACCESO POR ROLES (RBAC)
@@ -30,42 +29,42 @@ def requiere_rol(roles_permitidos):
     def decorator(view_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
-            # El superusuario siempre tiene acceso total
             if request.user.is_superuser:
                 return view_func(request, *args, **kwargs)
-            # Verifica si el usuario pertenece a alguno de los roles permitidos
+            
             if request.user.groups.filter(name__in=roles_permitidos).exists():
                 return view_func(request, *args, **kwargs)
             
-            # Si no tiene el rol, lo expulsa al dashboard con un error
             messages.error(request, "Acceso Denegado: Tu rol institucional no tiene privilegios para realizar esta acción.")
             return redirect('dashboard')
         return _wrapped_view
     return decorator
 
-# Definición de quién puede tocar qué módulo:
 ROLES_INVENTARIO = ['Gerencia y Presidencia', 'Logistica e Inventario']
 ROLES_COMERCIO = ['Gerencia y Presidencia', 'Comercio y Ventas']
 ROLES_FACTURACION = ['Gerencia y Presidencia', 'Facturacion y Cobranza']
-def tiene_rol(user, nombres_roles):
-    """Verifica si el usuario es superusuario o pertenece a alguno de los roles indicados."""
-    if user.is_superuser:
-        return True
-    return user.groups.filter(name__in=nombres_roles).exists()
-    
+
+# ==========================================
+# UTILIDADES Y HELPERS
+# ==========================================
+
 def fmt_moneda(valor):
+    """Formatea números al estándar venezolano: 10.045.812,00"""
     if valor is None or valor == '':
         valor = Decimal('0.00')
     return f"{Decimal(str(valor)):,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.')
 
-
 def obtener_factor_bs(factura, cotizacion):
+    """Calcula el factor de tasa de cambio si los ítems están en USD y la factura en Bs."""
     suma_items = sum((item.cantidad * item.precio_unitario) for item in cotizacion.items.all())
     subtotal_factura = (factura.base_imponible or Decimal('0.00')) + (factura.monto_exento or Decimal('0.00'))
     if suma_items > 0 and subtotal_factura > 0:
         return subtotal_factura / suma_items
     return Decimal('1.00')
 
+# ==========================================
+# DASHBOARD E INFORMES GLOBALES
+# ==========================================
 
 @login_required
 def dashboard(request):
@@ -77,7 +76,6 @@ def dashboard(request):
         'cotizaciones_activas': cotizaciones_activas,
         'cotizaciones_pendientes': cotizaciones_pendientes,
     })
-
 
 @login_required
 def estado_financiero(request):
@@ -98,6 +96,9 @@ def estado_financiero(request):
         'cotizaciones_pendientes': cotizaciones_pendientes,
     })
 
+# ==========================================
+# GESTIÓN DE CLIENTES
+# ==========================================
 
 @login_required
 def lista_clientes(request):
@@ -108,7 +109,6 @@ def lista_clientes(request):
     if query:
         clientes = clientes.filter(Q(nombre_razon_social__icontains=query) | Q(identificacion__icontains=query))
     return render(request, 'facturacion/lista_clientes.html', {'clientes': clientes})
-
 
 @login_required
 def crear_cliente(request):
@@ -122,7 +122,6 @@ def crear_cliente(request):
     else:
         form = ClienteForm()
     return render(request, 'facturacion/crear_cliente.html', {'form': form})
-
 
 @login_required
 def editar_cliente(request, cliente_id):
@@ -138,6 +137,9 @@ def editar_cliente(request, cliente_id):
         form = ClienteForm(instance=cliente)
     return render(request, 'facturacion/crear_cliente.html', {'form': form, 'editando': True, 'cliente': cliente})
 
+# ==========================================
+# GESTIÓN DE INVENTARIO VEHICULAR
+# ==========================================
 
 @login_required
 def lista_vehiculos(request):
@@ -150,8 +152,8 @@ def lista_vehiculos(request):
         )
     return render(request, 'facturacion/lista_vehiculos.html', {'vehiculos': vehiculos.order_by('-anio', 'marca')})
 
-
 @login_required
+@requiere_rol(ROLES_INVENTARIO)
 def crear_vehiculo(request):
     if request.method == 'POST':
         form = VehiculoForm(request.POST)
@@ -164,8 +166,8 @@ def crear_vehiculo(request):
         form = VehiculoForm()
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form})
 
-
 @login_required
+@requiere_rol(ROLES_INVENTARIO)
 def editar_vehiculo(request, vehiculo_id):
     vehiculo = get_object_or_404(Vehiculo, id=vehiculo_id)
     if request.method == 'POST':
@@ -178,7 +180,6 @@ def editar_vehiculo(request, vehiculo_id):
     else:
         form = VehiculoForm(instance=vehiculo)
     return render(request, 'facturacion/crear_vehiculo.html', {'form': form, 'editando': True})
-
 
 @login_required
 def exportar_inventario_excel(request):
@@ -210,8 +211,8 @@ def exportar_inventario_excel(request):
     wb.save(response)
     return response
 
-
 @login_required
+@requiere_rol(ROLES_INVENTARIO)
 def importar_inventario_excel(request):
     if request.method == 'POST':
         excel_file = request.FILES.get('archivo_excel')
@@ -250,6 +251,9 @@ def importar_inventario_excel(request):
             return redirect('importar_inventario')
     return render(request, 'facturacion/importar_inventario.html')
 
+# ==========================================
+# GESTIÓN DE COTIZACIONES
+# ==========================================
 
 @login_required
 def lista_cotizaciones(request):
@@ -261,8 +265,8 @@ def lista_cotizaciones(request):
         )
     return render(request, 'facturacion/lista_cotizaciones.html', {'cotizaciones': cotizaciones})
 
-
 @login_required
+@requiere_rol(ROLES_COMERCIO)
 def crear_cotizacion(request):
     if request.method == 'POST':
         form = CotizacionForm(request.POST)
@@ -317,8 +321,8 @@ def crear_cotizacion(request):
         'form': form, 'vehiculos_disponibles': Vehiculo.objects.filter(estado='Disponible')
     })
 
-
 @login_required
+@requiere_rol(['Gerencia y Presidencia'])
 def eliminar_cotizacion(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     factura_previa = getattr(cotizacion, 'factura', None)
@@ -334,7 +338,6 @@ def eliminar_cotizacion(request, cotizacion_id):
         cotizacion.save()
     messages.success(request, f'¡Cotización VP-{cotizacion.id} anulada con éxito y vehículos liberados!')
     return redirect('lista_cotizaciones')
-
 
 @login_required
 def imprimir_cotizacion(request, cotizacion_id):
@@ -453,7 +456,7 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(330, y_pos, "TOTAL GENERAL ($):")
     p.drawRightString(width - 60, y_pos, fmt_moneda(cotizacion.total))
 
-    y_pos -= 28
+    y_pos -= 24
     p.setFont("Helvetica-Bold", 7.5)
     p.setFillColor(COLOR_AZUL_MARINO)
     p.drawString(55, y_pos, "CONSIDERACIONES Y CONDICIONES:")
@@ -473,30 +476,23 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.drawString(55, y_col - 6, "Cuentas Bancarias: BANCO DE VENEZUELA: 0102-0762-2900-0001-9923 | TIPO: CORRIENTE")
     p.drawString(55, y_col - 14, "A NOMBRE DE: EMPRESA VENEZUELA PRODUCTIVA C.A. | RIF: G-20010522-4")
 
-    # --- ZONA DE FIRMAS (REVISADO / AUTORIZADO) ---
-    y_titulo_firma = 215
-    y_linea_firma = 170
-
-    p.setFont("Helvetica-Bold", 7.5)
-    p.setFillColor(COLOR_AZUL_MARINO)
-    p.drawCentredString(165, y_titulo_firma, "REVISADO POR:")
-    p.drawCentredString(445, y_titulo_firma, "AUTORIZADO POR:")
-
+    y_firmas = 190
     p.setStrokeColor(COLOR_AZUL_MARINO)
     p.setLineWidth(0.6)
-    p.line(85, y_linea_firma, 245, y_linea_firma)
-    p.line(365, y_linea_firma, 525, y_linea_firma)
-
+    p.line(85, y_firmas, 245, y_firmas)
+    p.line(365, y_firmas, 525, y_firmas)
+    p.setFont("Helvetica-Bold", 7.5)
+    p.setFillColor(COLOR_AZUL_MARINO)
+    p.drawCentredString(165, y_firmas + 6, "REVISADO POR:")
+    p.drawCentredString(445, y_firmas + 6, "AUTORIZADO POR:")
     p.setFont("Helvetica-Bold", 8)
     p.setFillColor(COLOR_GRIS_OSCURO)
-    p.drawCentredString(165, y_linea_firma - 12, "Mercedes Varela")
-    p.drawCentredString(445, y_linea_firma - 12, "Jose Holberg Zambrano Gonzalez")
-
+    p.drawCentredString(165, y_firmas - 12, "Mercedes Varela")
+    p.drawCentredString(445, y_firmas - 12, "Jose Holberg Zambrano Gonzalez")
     p.setFont("Helvetica", 7)
-    p.drawCentredString(165, y_linea_firma - 21, "Gerente de Comercio")
-    p.drawCentredString(445, y_linea_firma - 21, "Presidente (E)")
+    p.drawCentredString(165, y_firmas - 21, "Gerente de Comercio")
+    p.drawCentredString(445, y_firmas - 21, "Presidente (E)")
 
-    # --- PIE DE PÁGINA Y QR ---
     tel_fijo, tel_movil = "+58 212 802 8300", "+58 412 619 8651"
     red_social, web_url = "@somosvenezuelaproductiva", "emvepro.gob.ve"
     dir_linea1 = "Final Av. Panteón, Diagonal al Panteón Nacional"
@@ -550,7 +546,12 @@ def imprimir_cotizacion(request, cotizacion_id):
     p.save()
     return response
 
+# ==========================================
+# GESTIÓN DE FACTURAS Y COBRANZAS
+# ==========================================
+
 @login_required
+@requiere_rol(ROLES_FACTURACION)
 def generar_factura(request, cotizacion_id):
     cotizacion = get_object_or_404(Cotizacion, id=cotizacion_id)
     factura_previa = getattr(cotizacion, 'factura', None)
@@ -633,8 +634,8 @@ def generar_factura(request, cotizacion_id):
         'form': form, 'cotizacion': cotizacion, 'vehiculos_disponibles': vehiculos_disponibles,
     })
 
-
 @login_required
+@requiere_rol(ROLES_FACTURACION)
 def actualizar_pago_factura(request, factura_id):
     factura = get_object_or_404(Factura, id=factura_id)
     if request.method == 'POST':
@@ -670,7 +671,6 @@ def actualizar_pago_factura(request, factura_id):
         return redirect('historial_facturas')
     return redirect('estado_financiero')
 
-
 @login_required
 def historial_facturas(request):
     query = request.GET.get('q')
@@ -682,7 +682,6 @@ def historial_facturas(request):
             Q(cotizacion__cliente__identificacion__icontains=query)
         )
     return render(request, 'facturacion/historial_facturas.html', {'facturas': facturas.order_by('-fecha_emision', '-numero_factura')})
-
 
 @login_required
 def exportar_facturas_excel(request):
@@ -724,10 +723,169 @@ def exportar_facturas_excel(request):
     wb.save(response)
     return response
 
-
 # ==========================================
 # IMPRESIONES PDF - FACTURAS (BLANCO Y NEGRO, SIN FONDO, SIN QR)
 # ==========================================
+
+def _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=False):
+    factura = get_object_or_404(Factura, id=factura_id)
+    cotizacion = factura.cotizacion
+    cliente = cotizacion.cliente
+    moneda_lbl = "USD" if en_dolares else "Bs"
+    sap_lbl = "Con_SAP" if con_sap else "Sin_SAP"
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Factura_Inst_{sap_lbl}_{moneda_lbl}_{factura.numero_factura}.pdf"'
+
+    p = canvas.Canvas(response, pagesize=letter)
+    width, height = letter
+    p.setFillColor(colors.black)
+    p.setStrokeColor(colors.black)
+
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(400, 620, "FACTURA N°:")
+    p.drawString(400, 600, "FECHA DE EMISIÓN:")
+    p.setFont("Helvetica", 9)
+    p.drawRightString(550, 620, str(factura.numero_factura))
+    p.drawRightString(550, 600, factura.fecha_emision.strftime('%d/%m/%Y'))
+
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
+    p.drawString(40, 495, "C.I./R.I.F:")
+    p.drawString(40, 475, "DIRECCIÓN:")
+    p.drawString(40, 455, "TELÉFONO:")
+    p.setFont("Helvetica", 8)
+    p.drawString(250, 540, str(cliente.nombre_razon_social))
+    p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
+    p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
+    p.drawString(150, 455, str(cliente.telefono or ''))
+
+    simbolo_moneda = "$" if en_dolares else "Bs."
+    if con_sap:
+        data = [['CANT', 'CÓD. SAP', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', f'PREC. {simbolo_moneda}']]
+        col_widths = [20, 35, 75, 40, 40, 35, 20, 25, 55, 80, 35, 60]
+        idx_desc = 2
+    else:
+        data = [['CANT', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', f'PREC. {simbolo_moneda}']]
+        col_widths = [20, 100, 45, 45, 35, 20, 25, 60, 75, 35, 60]
+        idx_desc = 1
+
+    factor_bs = obtener_factor_bs(factura, cotizacion)
+    base_usd, exento_usd = Decimal('0.00'), Decimal('0.00')
+
+    for item in cotizacion.items.all():
+        v = item.vehiculo
+        subtotal_usd = Decimal(str(item.cantidad)) * Decimal(str(item.precio_unitario))
+        if item.aplica_iva:
+            base_usd += subtotal_usd
+        else:
+            exento_usd += subtotal_usd
+
+        precio_mostrar = subtotal_usd if en_dolares else (subtotal_usd * factor_bs)
+        max_desc = 22 if con_sap else 28
+        fila = [
+            str(item.cantidad),
+            item.descripcion[:max_desc],
+            v.marca[:10] if v else '',
+            v.modelo[:10] if v else '',
+            v.placa if v else 'S/P',
+            str(v.anio) if v else '',
+            v.color[:8] if v else '',
+            v.serial_motor[:15] if v else '',
+            v.serial_carroceria_niv[:18] if v else '',
+            v.transmision[:6] if v else 'MANUAL',
+            fmt_moneda(precio_mostrar)
+        ]
+        if con_sap:
+            fila.insert(1, "1124626")
+        data.append(fila)
+
+    table = Table(data, colWidths=col_widths)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('ALIGN', (idx_desc, 1), (idx_desc, -1), 'LEFT'),
+        ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 5.5),
+        ('FONTSIZE', (0, 1), (-1, -1), 6),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.6, colors.black),
+        ('LEFTPADDING', (0, 0), (-1, -1), 1.5),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 1.5),
+        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
+    ]))
+
+    table.wrapOn(p, width, height)
+    _, h_t = table.wrap(width, height)
+    y_table_bottom = 435 - h_t
+    table.drawOn(p, 40, y_table_bottom)
+
+    y_notas = y_table_bottom - 20
+    p.setFont("Helvetica-Bold", 7.5)
+    p.drawString(40, y_notas, "NOTA 1: El precio referencial del vehículo se corresponde con el convenio institucional.")
+    p.drawString(40, y_notas - 10, "Es importante resaltar que para el momento del pago se tomará en cuenta la tasa oficial.")
+    p.drawString(40, y_notas - 25, f"NOTA 2: Esta factura corresponde al respaldo administrativo de la cotización VP-{cotizacion.id}.")
+
+    y_tot = y_notas - 45
+    if factura.coletillas:
+        p.setFont("Helvetica-Bold", 7)
+        p.drawString(40, y_tot, "Condiciones y Coletillas:")
+        p.setFont("Helvetica", 6.5)
+        y_col = y_tot - 10
+        for linea in str(factura.coletillas).split('\n'):
+            p.drawString(40, y_col, linea.strip())
+            y_col -= 9
+
+    if en_dolares:
+        base_val = base_usd
+        exento_val = exento_usd
+        iva_val = base_usd * Decimal('0.16')
+        total_val = base_val + exento_val + iva_val
+    else:
+        base_val = factura.base_imponible
+        exento_val = factura.monto_exento
+        iva_val = factura.impuesto_iva
+        total_val = factura.total
+
+    p.setFont("Helvetica-Bold", 8)
+    p.drawString(330, y_tot, f"Base Imponible {simbolo_moneda}:")
+    p.drawRightString(560, y_tot, fmt_moneda(base_val))
+    y_tot -= 14
+    p.drawString(330, y_tot, f"Exento {simbolo_moneda}:")
+    p.drawRightString(560, y_tot, fmt_moneda(exento_val))
+    y_tot -= 14
+    p.drawString(330, y_tot, f"I.V.A. (16%) {simbolo_moneda}:")
+    p.drawRightString(560, y_tot, fmt_moneda(iva_val))
+    p.setLineWidth(1)
+    p.line(320, y_tot - 4, 560, y_tot - 4)
+    y_tot -= 14
+    p.setFont("Helvetica-Bold", 9)
+    p.drawString(330, y_tot, f"TOTAL GENERAL {simbolo_moneda}:")
+    p.drawRightString(560, y_tot, fmt_moneda(total_val))
+
+    p.showPage()
+    p.save()
+    return response
+
+@login_required
+def imprimir_factura_institucional(request, factura_id):
+    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=False)
+
+@login_required
+def imprimir_factura_institucional_sin_sap(request, factura_id):
+    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=False, en_dolares=False)
+
+@login_required
+def imprimir_factura_institucional_dolares(request, factura_id):
+    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=True)
+
+@login_required
+def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
+    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=False, en_dolares=True)
+
 
 @login_required
 def imprimir_factura_forma_libre(request, factura_id):
@@ -1004,170 +1162,6 @@ def imprimir_factura_dolares(request, factura_id):
     p.showPage()
     p.save()
     return response
-
-
-def _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=False):
-    factura = get_object_or_404(Factura, id=factura_id)
-    cotizacion = factura.cotizacion
-    cliente = cotizacion.cliente
-    moneda_lbl = "USD" if en_dolares else "Bs"
-    sap_lbl = "Con_SAP" if con_sap else "Sin_SAP"
-
-    response = HttpResponse(content_type='application/pdf')
-    response['Content-Disposition'] = f'inline; filename="Factura_Inst_{sap_lbl}_{moneda_lbl}_{factura.numero_factura}.pdf"'
-
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
-    p.setFillColor(colors.black)
-    p.setStrokeColor(colors.black)
-
-    p.setFont("Helvetica-Bold", 9)
-    p.drawString(400, 620, "FACTURA N°:")
-    p.drawString(400, 600, "FECHA DE EMISIÓN:")
-    p.setFont("Helvetica", 9)
-    p.drawRightString(550, 620, str(factura.numero_factura))
-    p.drawRightString(550, 600, factura.fecha_emision.strftime('%d/%m/%Y'))
-
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(40, 540, "NOMBRE(S) Y APELLIDO (S) O RAZÓN SOCIAL:")
-    p.drawString(40, 495, "C.I./R.I.F:")
-    p.drawString(40, 475, "DIRECCIÓN:")
-    p.drawString(40, 455, "TELÉFONO:")
-    p.setFont("Helvetica", 8)
-    p.drawString(250, 540, str(cliente.nombre_razon_social))
-    p.drawString(150, 495, f"{cliente.tipo_documento}-{cliente.identificacion}")
-    p.drawString(150, 475, str(cliente.direccion[:85] if cliente.direccion else ''))
-    p.drawString(150, 455, str(cliente.telefono or ''))
-
-    simbolo_moneda = "$" if en_dolares else "Bs."
-    if con_sap:
-        data = [['CANT', 'CÓD. SAP', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', f'PREC. {simbolo_moneda}']]
-        col_widths = [20, 35, 75, 40, 40, 35, 20, 25, 55, 80, 35, 60]
-        idx_desc = 2
-    else:
-        data = [['CANT', 'DESCRIPCIÓN', 'MARCA', 'MODELO', 'PLACA', 'AÑO', 'COLOR', 'S. MOTOR', 'S. CARROC./NIV', 'TRANS.', f'PREC. {simbolo_moneda}']]
-        col_widths = [20, 100, 45, 45, 35, 20, 25, 60, 75, 35, 60]
-        idx_desc = 1
-
-    factor_bs = obtener_factor_bs(factura, cotizacion)
-    base_usd, exento_usd = Decimal('0.00'), Decimal('0.00')
-
-    for item in cotizacion.items.all():
-        v = item.vehiculo
-        subtotal_usd = Decimal(str(item.cantidad)) * Decimal(str(item.precio_unitario))
-        if item.aplica_iva:
-            base_usd += subtotal_usd
-        else:
-            exento_usd += subtotal_usd
-
-        precio_mostrar = subtotal_usd if en_dolares else (subtotal_usd * factor_bs)
-        max_desc = 22 if con_sap else 28
-        fila = [
-            str(item.cantidad),
-            item.descripcion[:max_desc],
-            v.marca[:10] if v else '',
-            v.modelo[:10] if v else '',
-            v.placa if v else 'S/P',
-            str(v.anio) if v else '',
-            v.color[:8] if v else '',
-            v.serial_motor[:15] if v else '',
-            v.serial_carroceria_niv[:18] if v else '',
-            v.transmision[:6] if v else 'MANUAL',
-            fmt_moneda(precio_mostrar)
-        ]
-        if con_sap:
-            fila.insert(1, "1124626")
-        data.append(fila)
-
-    table = Table(data, colWidths=col_widths)
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.white),
-        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('ALIGN', (idx_desc, 1), (idx_desc, -1), 'LEFT'),
-        ('ALIGN', (-1, 1), (-1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 5.5),
-        ('FONTSIZE', (0, 1), (-1, -1), 6),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('GRID', (0, 0), (-1, -1), 0.6, colors.black),
-        ('LEFTPADDING', (0, 0), (-1, -1), 1.5),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 1.5),
-        ('TOPPADDING', (0, 0), (-1, -1), 2.5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2.5),
-    ]))
-
-    table.wrapOn(p, width, height)
-    _, h_t = table.wrap(width, height)
-    y_table_bottom = 435 - h_t
-    table.drawOn(p, 40, y_table_bottom)
-
-    y_notas = y_table_bottom - 20
-    p.setFont("Helvetica-Bold", 7.5)
-    p.drawString(40, y_notas, "NOTA 1: El precio referencial del vehículo se corresponde con el convenio institucional.")
-    p.drawString(40, y_notas - 10, "Es importante resaltar que para el momento del pago se tomará en cuenta la tasa oficial.")
-    p.drawString(40, y_notas - 25, f"NOTA 2: Esta factura corresponde al respaldo administrativo de la cotización VP-{cotizacion.id}.")
-
-    y_tot = y_notas - 45
-    if factura.coletillas:
-        p.setFont("Helvetica-Bold", 7)
-        p.drawString(40, y_tot, "Condiciones y Coletillas:")
-        p.setFont("Helvetica", 6.5)
-        y_col = y_tot - 10
-        for linea in str(factura.coletillas).split('\n'):
-            p.drawString(40, y_col, linea.strip())
-            y_col -= 9
-
-    if en_dolares:
-        base_val = base_usd
-        exento_val = exento_usd
-        iva_val = base_usd * Decimal('0.16')
-        total_val = base_val + exento_val + iva_val
-    else:
-        base_val = factura.base_imponible
-        exento_val = factura.monto_exento
-        iva_val = factura.impuesto_iva
-        total_val = factura.total
-
-    p.setFont("Helvetica-Bold", 8)
-    p.drawString(330, y_tot, f"Base Imponible {simbolo_moneda}:")
-    p.drawRightString(560, y_tot, fmt_moneda(base_val))
-    y_tot -= 14
-    p.drawString(330, y_tot, f"Exento {simbolo_moneda}:")
-    p.drawRightString(560, y_tot, fmt_moneda(exento_val))
-    y_tot -= 14
-    p.drawString(330, y_tot, f"I.V.A. (16%) {simbolo_moneda}:")
-    p.drawRightString(560, y_tot, fmt_moneda(iva_val))
-    p.setLineWidth(1)
-    p.line(320, y_tot - 4, 560, y_tot - 4)
-    y_tot -= 14
-    p.setFont("Helvetica-Bold", 9)
-    p.drawString(330, y_tot, f"TOTAL GENERAL {simbolo_moneda}:")
-    p.drawRightString(560, y_tot, fmt_moneda(total_val))
-
-    p.showPage()
-    p.save()
-    return response
-
-
-@login_required
-def imprimir_factura_institucional(request, factura_id):
-    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=False)
-
-
-@login_required
-def imprimir_factura_institucional_sin_sap(request, factura_id):
-    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=False, en_dolares=False)
-
-
-@login_required
-def imprimir_factura_institucional_dolares(request, factura_id):
-    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=True, en_dolares=True)
-
-
-@login_required
-def imprimir_factura_institucional_sin_sap_dolares(request, factura_id):
-    return _dibujar_factura_institucional_tabla(request, factura_id, con_sap=False, en_dolares=True)
 
 
 # ==========================================
