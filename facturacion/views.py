@@ -13,7 +13,7 @@ from django.db import transaction
 from django.contrib import messages 
 from django.db.models import Q, Sum, Prefetch
 from functools import wraps
-
+import tempfile
 from reportlab.platypus import Table, TableStyle
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
@@ -1278,4 +1278,41 @@ def descargar_respaldo_db(request):
     print(f"[{fecha_str}] El administrador {request.user.username} descargó un backup general.")
     
     return response
-    
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser, login_url='dashboard')
+def subir_respaldo_db(request):
+    """
+    Recibe un archivo JSON, lo guarda temporalmente y ejecuta loaddata 
+    para restaurar la base de datos de forma transaccional.
+    """
+    if request.method == 'POST':
+        archivo = request.FILES.get('archivo_respaldo')
+        
+        if not archivo or not archivo.name.endswith('.json'):
+            messages.error(request, 'Formato inválido. Por favor, sube un archivo JSON generado por el sistema.')
+        else:
+            try:
+                # 1. Crear un archivo temporal seguro en el servidor
+                fd, temp_path = tempfile.mkstemp(suffix='.json')
+                with os.fdopen(fd, 'wb') as f:
+                    for chunk in archivo.chunks():
+                        f.write(chunk)
+                
+                # 2. Inyectar la data bloqueando transacciones para evitar corrupción
+                with transaction.atomic():
+                    call_command('loaddata', temp_path)
+                
+                # 3. Limpieza exitosa
+                os.remove(temp_path)
+                messages.success(request, '¡Restauración exitosa! La base de datos ha sido actualizada con el respaldo.')
+                print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] El admin {request.user.username} RESTAURÓ un backup.")
+                
+            except Exception as e:
+                # Limpieza en caso de fallo catastrófico
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                messages.error(request, f'Error crítico de integridad al restaurar: {e}')
+                
+    # Redirige de vuelta a la página anterior (la de estado de BD)
+    return redirect(request.META.get('HTTP_REFERER', 'dashboard'))
