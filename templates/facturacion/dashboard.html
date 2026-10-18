@@ -2,181 +2,119 @@
 {% load l10n %}
 
 {% block content %}
-<!-- Encabezado del Dashboard -->
+<!-- Encabezado de Bienvenida Personalizado -->
 <div class="row mb-4 align-items-center">
-    <div class="col-md-7">
-        <h2 class="fw-bold text-dark"><i class="fa-solid fa-chart-line text-primary me-2"></i>Panel de Control Operativo</h2>
-        <p class="text-muted mb-0">Gestión centralizada de presupuestos, emisiones fiscales y parque automotor.</p>
-    </div>
-    <div class="col-md-5 text-md-end mt-3 mt-md-0">
-        <a href="{% url 'crear_cotizacion' %}" class="btn btn-primary fw-bold shadow-sm me-2">
-            <i class="fa-solid fa-plus me-1"></i> Nueva Cotización
-        </a>
-        <a href="{% url 'lista_vehiculos' %}" class="btn btn-outline-secondary fw-bold shadow-sm">
-            <i class="fa-solid fa-warehouse me-1"></i> Inventario
-        </a>
+    <div class="col-md-8">
+        <h2 class="fw-bold text-dark mb-0">
+            Hola, {{ user.username|title }} <span class="fs-4">👋</span>
+        </h2>
+        <p class="text-muted mt-1 mb-0">
+            Bienvenido al panel de 
+            <strong class="text-primary">
+                {% if user.is_superuser %}Administración General
+                {% elif 'Gerencia' in user.groups.all|stringformat:"s" %}Gerencia y Presidencia
+                {% elif 'Comercio' in user.groups.all|stringformat:"s" %}Comercio y Ventas
+                {% elif 'Facturacion' in user.groups.all|stringformat:"s" %}Facturación y Cobranza
+                {% elif 'Logistica' in user.groups.all|stringformat:"s" %}Logística e Inventario
+                {% else %}Operaciones
+                {% endif %}
+            </strong>. Aquí tienes el resumen de tu área.
+        </p>
     </div>
 </div>
 
-<!-- Tarjetas de Métricas Rápidas -->
-<div class="row g-3 mb-4">
-    <div class="col-md-6">
-        <div class="card shadow-sm border-0 border-start border-primary border-4 h-100 py-2">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-primary text-uppercase mb-1">Cotizaciones Activas / Emitidas</div>
-                        <div class="h3 mb-0 fw-bold text-dark">{{ cotizaciones_activas }}</div>
+<div class="row g-4 mb-4">
+    <!-- ========================================== -->
+    <!-- MÉTRICAS PARA GERENCIA Y FACTURACIÓN       -->
+    <!-- ========================================== -->
+    {% if request.user.is_superuser or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-primary text-white h-100">
+                <div class="card-body p-4 position-relative overflow-hidden">
+                    <i class="fa-solid fa-sack-dollar position-absolute opacity-10" style="font-size: 5rem; right: -10px; bottom: -10px;"></i>
+                    <h6 class="text-uppercase fw-semibold mb-3 opacity-75">Ingresos Facturados</h6>
+                    <h3 class="fw-bold font-monospace mb-0">$ {{ total_facturado|floatformat:"2g" }}</h3>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- ========================================== -->
+    <!-- MÉTRICAS PARA GERENCIA Y COMERCIO          -->
+    <!-- ========================================== -->
+    {% if request.user.is_superuser or 'Comercio' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-white h-100 border-start border-4 border-warning">
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase fw-semibold text-muted mb-3">Cotizaciones Activas</h6>
+                    <h3 class="fw-bold text-dark font-monospace mb-0">{{ cotizaciones_activas }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-white h-100 border-start border-4 border-info">
+                <div class="card-body p-4">
+                    <h6 class="text-uppercase fw-semibold text-muted mb-3">Directorio de Clientes</h6>
+                    <h3 class="fw-bold text-dark font-monospace mb-0">{{ total_clientes }}</h3>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- ========================================== -->
+    <!-- MÉTRICAS PARA LOGÍSTICA (E INVENTARIO)     -->
+    <!-- ========================================== -->
+    {% if request.user.is_superuser or 'Logistica' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" or 'Comercio' in request.user.groups.all|stringformat:"s" %}
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 bg-light h-100 border border-success-subtle">
+                <div class="card-body p-4 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-uppercase fw-semibold text-success mb-2">Disponibles</h6>
+                        <h3 class="fw-bold text-success font-monospace mb-0">{{ vehiculos_disponibles }}</h3>
                     </div>
-                    <div class="col-auto">
-                        <i class="fa-solid fa-file-invoice-dollar fs-2 text-primary opacity-50"></i>
+                    <div class="text-end text-muted small">
+                        <div class="mb-1"><span class="badge bg-warning text-dark">{{ vehiculos_apartados }}</span> Apartados</div>
+                        <div><span class="badge bg-danger">{{ vehiculos_vendidos }}</span> Vendidos</div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card shadow-sm border-0 border-start border-warning border-4 h-100 py-2">
-            <div class="card-body">
-                <div class="row align-items-center">
-                    <div class="col">
-                        <div class="text-xs fw-bold text-warning text-uppercase mb-1">Pendientes por Facturar</div>
-                        <div class="h3 mb-0 fw-bold text-dark">{{ cotizaciones_pendientes.count|default:"0" }}</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fa-solid fa-clock fs-2 text-warning opacity-50"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    {% endif %}
 </div>
 
+<!-- ========================================== -->
+<!-- TABLAS RECIENTES SEGÚN ROL                 -->
+<!-- ========================================== -->
 <div class="row g-4">
-    <!-- Cotizaciones Pendientes de Facturar (Acción Inmediata) -->
-    <div class="col-lg-5">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <span class="fw-bold text-dark"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Pendientes de Facturar</span>
-                <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1">{{ cotizaciones_pendientes.count }}</span>
+    
+    <!-- COLUMNA IZQUIERDA: Cotizaciones Pendientes (Para Comercio, Facturación y Gerencia) -->
+    {% if request.user.is_superuser or 'Comercio' in request.user.groups.all|stringformat:"s" or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+    <div class="col-xl-6">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fa-solid fa-file-circle-exclamation text-warning me-2"></i>Cotizaciones Pendientes</span>
+                <a href="{% url 'lista_cotizaciones' %}" class="btn btn-sm btn-light border rounded-pill px-3">Ver Todas</a>
             </div>
             <div class="card-body p-0">
-                <ul class="list-group list-group-flush" style="max-height: 350px; overflow-y: auto;">
-                    {% for cotizacion in cotizaciones_pendientes %}
-                    <li class="list-group-item px-4 py-3 d-flex justify-content-between align-items-center">
-                        <div>
-                            <span class="fw-bold text-primary">#VP-{{ cotizacion.id }}</span>
-                            <div class="text-dark fw-medium small">{{ cotizacion.cliente.nombre_razon_social|truncatechars:26 }}</div>
-                            <small class="text-muted font-monospace fw-semibold">$ {{ cotizacion.total|floatformat:"2g" }}</small>
-                            <br>
-                            <!-- Identificador de Usuario -->
-                            <small class="text-secondary" style="font-size: 0.75rem;">
-                                <i class="fa-solid fa-user me-1 text-primary opacity-75"></i>{{ cotizacion.usuario.username|title|default:"Sistema" }}
-                            </small>
-                        </div>
-                        <div class="btn-group shadow-sm" role="group">
-                            <a href="{% url 'imprimir_cotizacion' cotizacion.id %}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Imprimir Presupuesto PDF">
-                                <i class="fa-solid fa-file-pdf text-danger"></i>
-                            </a>
-                            <a href="{% url 'generar_factura' cotizacion.id %}" class="btn btn-sm btn-warning fw-bold text-dark px-3">
-                                <i class="fa-solid fa-file-invoice me-1"></i> Facturar
-                            </a>
-                        </div>
-                    </li>
-                    {% empty %}
-                    <li class="list-group-item text-center py-5 text-muted">
-                        <i class="fa-solid fa-circle-check fs-3 mb-2 d-block text-success opacity-50"></i>
-                        ¡Excelente! No hay cotizaciones pendientes.
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-    </div>
-
-    <!-- Últimas Facturas Emitidas (Historial Reciente) -->
-    <div class="col-lg-7">
-        <div class="card shadow-sm border-0 h-100">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <span class="fw-bold text-dark"><i class="fa-solid fa-file-invoice text-success me-2"></i>Últimas Facturas Emitidas</span>
-                <a href="{% url 'historial_facturas' %}" class="small text-decoration-none fw-bold text-primary">Ver Historial &rarr;</a>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive" style="overflow-x: visible;">
+                <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light small text-uppercase">
+                        <thead class="bg-light text-secondary small">
                             <tr>
-                                <th class="ps-4">N° Factura</th>
+                                <th class="ps-4">Cotización</th>
                                 <th>Cliente</th>
-                                <th>Fecha</th>
-                                <th>Emitido Por</th>
-                                <th class="text-end">Total (Bs.)</th>
-                                <th class="text-center pe-4">Documentos</th>
+                                <th class="text-end pe-4">Monto ($)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for factura in facturas %}
+                            {% for cot in cotizaciones_pendientes %}
                             <tr>
-                                <td class="ps-4 fw-bold text-dark">
-                                    {{ factura.numero_factura }}
-                                    {% if factura.estado_pago == 'ANULADA' %}
-                                        <span class="badge bg-danger ms-1" style="font-size: 0.65rem;">Anulada</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="text-truncate" style="max-width: 140px;" title="{{ factura.cotizacion.cliente.nombre_razon_social }}">
-                                        {{ factura.cotizacion.cliente.nombre_razon_social }}
-                                    </div>
-                                </td>
-                                <td><small class="text-muted">{{ factura.fecha_emision|date:"d/m/Y" }}</small></td>
-                                <!-- Columna de Usuario -->
-                                <td>
-                                    <small class="text-secondary fw-medium">
-                                        <i class="fa-solid fa-user-pen me-1 opacity-75"></i>{{ factura.usuario.username|title|default:"N/A" }}
-                                    </small>
-                                </td>
-                                <td class="text-end font-monospace small">Bs. {{ factura.total|floatformat:"2g" }}</td>
-                                <td class="text-center pe-4">
-                                    <div class="btn-group shadow-sm" role="group">
-                                        <!-- Desplegable Facturas en Bolívares (Bs.) -->
-                                        <div class="btn-group" role="group">
-                                            <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle fw-bold py-1 px-2" data-bs-toggle="dropdown" aria-expanded="false" title="Formatos en Bolívares (Bs.)">
-                                                Bs.
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 small">
-                                                <li><h6 class="dropdown-header text-uppercase text-primary fw-bold">Formatos en Bs.</h6></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura' factura.id %}" target="_blank"><i class="fa-solid fa-file-invoice text-primary me-2"></i>Forma Libre (Bs.)</a></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional' factura.id %}" target="_blank"><i class="fa-solid fa-building-columns text-dark me-2"></i>Institucional Con SAP (Bs.)</a></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_sin_sap' factura.id %}" target="_blank"><i class="fa-solid fa-file-circle-exclamation text-warning me-2"></i>Institucional Sin SAP (Bs.)</a></li>
-                                            </ul>
-                                        </div>
-
-                                        <!-- Desplegable Facturas en Dólares ($) -->
-                                        <div class="btn-group" role="group">
-                                            <button type="button" class="btn btn-sm btn-outline-info dropdown-toggle fw-bold py-1 px-2" data-bs-toggle="dropdown" aria-expanded="false" title="Formatos en Dólares ($)">
-                                                USD
-                                            </button>
-                                            <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 small">
-                                                <li><h6 class="dropdown-header text-uppercase text-info fw-bold">Formatos en Dólares ($)</h6></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-file-invoice-dollar text-info me-2"></i>Forma Libre ($)</a></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-building-columns text-dark me-2"></i>Institucional Con SAP ($)</a></li>
-                                                <li><a class="dropdown-item py-2" href="{% url 'imprimir_factura_institucional_sin_sap_dolares' factura.id %}" target="_blank"><i class="fa-solid fa-file-circle-exclamation text-warning me-2"></i>Institucional Sin SAP ($)</a></li>
-                                            </ul>
-                                        </div>
-
-                                        <!-- Certificado de Origen -->
-                                        <a href="{% url 'imprimir_certificado' factura.id %}" target="_blank" class="btn btn-sm btn-outline-success py-1 px-2" title="Certificado de Origen PDF">
-                                            <i class="fa-solid fa-certificate"></i>
-                                        </a>
-                                    </div>
-                                </td>
+                                <td class="ps-4 fw-bold text-primary">#VP-{{ cot.id }}</td>
+                                <td class="text-truncate" style="max-width: 150px;">{{ cot.cliente.nombre_razon_social }}</td>
+                                <td class="text-end pe-4 font-monospace fw-semibold">$ {{ cot.total|floatformat:"2g" }}</td>
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    <i class="fa-solid fa-folder-open fs-3 mb-2 d-block text-black-50"></i>
-                                    No hay facturas emitidas recientemente.
-                                </td>
+                                <td colspan="3" class="text-center py-4 text-muted small">No hay cotizaciones pendientes.</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -184,6 +122,101 @@
                 </div>
             </div>
         </div>
+    </div>
+    {% endif %}
+
+    <!-- COLUMNA DERECHA: Varía según el rol -->
+    <div class="col-xl-6">
+        
+        <!-- Para Facturación y Gerencia: Últimas Facturas -->
+        {% if request.user.is_superuser or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fa-solid fa-file-invoice text-success me-2"></i>Últimas Facturas Emitidas</span>
+                <a href="{% url 'historial_facturas' %}" class="btn btn-sm btn-light border rounded-pill px-3">Ver Historial</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small">
+                            <tr>
+                                <th class="ps-4">N° Factura</th>
+                                <th>Fecha</th>
+                                <th class="text-end pe-4">Estatus</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fac in facturas_recientes %}
+                            <tr>
+                                <td class="ps-4 fw-bold text-primary">{{ fac.numero_factura }}</td>
+                                <td>{{ fac.fecha_emision|date:"d/m/Y" }}</td>
+                                <td class="text-end pe-4">
+                                    {% if fac.estado_pago == 'PAGADA' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill">Pagada</span>
+                                    {% elif fac.estado_pago == 'ANULADA' %}
+                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill">Anulada</span>
+                                    {% else %}
+                                        <span class="badge bg-warning bg-opacity-25 text-dark rounded-pill">Pendiente</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted small">No hay facturas emitidas.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Para Logística e Inventario: Últimos Vehículos Ingresados -->
+        {% if request.user.is_superuser or 'Logistica' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+            <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-dark"><i class="fa-solid fa-truck-ramp-box text-secondary me-2"></i>Últimos Ingresos al Inventario</span>
+                <a href="{% url 'lista_vehiculos' %}" class="btn btn-sm btn-light border rounded-pill px-3">Ver Parque</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light text-secondary small">
+                            <tr>
+                                <th class="ps-4">Marca y Modelo</th>
+                                <th>Serial NIV</th>
+                                <th class="text-end pe-4">Estatus</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for veh in vehiculos_recientes %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold text-dark">{{ veh.marca }}</div>
+                                    <small class="text-muted">{{ veh.modelo }}</small>
+                                </td>
+                                <td class="font-monospace small">{{ veh.serial_carroceria_niv|default:"N/D" }}</td>
+                                <td class="text-end pe-4">
+                                    {% if veh.estado == 'Disponible' %}
+                                        <span class="badge bg-success bg-opacity-10 text-success rounded-pill">Disp.</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill">{{ veh.estado }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted small">No hay vehículos registrados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
     </div>
 </div>
 {% endblock %}
