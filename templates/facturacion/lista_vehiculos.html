@@ -1,17 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<!-- Variable segura para comprobar si tiene permisos de edición -->
-{% setvar permiso_inventario=False %}
-{% if request.user.is_superuser %}
-    {% setvar permiso_inventario=True %}
-{% endif %}
-{% for g in request.user.groups.all %}
-    {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
-        {% setvar permiso_inventario=True %}
-    {% endif %}
-{% endfor %}
-
 <div class="row mb-4 align-items-center">
     <div class="col-md-6">
         <h2 class="fw-bold text-dark"><i class="fa-solid fa-warehouse text-secondary me-2"></i>Parque Automotor</h2>
@@ -21,14 +10,14 @@
         <form method="GET" action="{% url 'lista_vehiculos' %}" class="d-flex gap-2">
             <div class="input-group shadow-sm rounded-pill overflow-hidden">
                 <span class="input-group-text bg-white border-0 ps-3"><i class="fa-solid fa-magnifying-glass text-secondary"></i></span>
-                <input type="text" name="q" value="{{ request.GET.q }}" class="form-control border-0" placeholder="Buscar placa, serial o modelo...">
+                <input type="text" name="q" value="{{ request.GET.q|default:'' }}" class="form-control border-0" placeholder="Buscar placa, serial o modelo...">
             </div>
         </form>
         <a href="{% url 'exportar_inventario_excel' %}" class="btn btn-success fw-bold shadow-sm rounded-pill px-3" title="Exportar Todo a Excel">
             <i class="fa-solid fa-file-excel"></i>
         </a>
         
-        <!-- Verificación Segura -->
+        <!-- Verificación Segura Nativa de Django -->
         {% if request.user.is_superuser %}
             <a href="{% url 'importar_inventario' %}" class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" title="Carga Masiva Excel">
                 <i class="fa-solid fa-upload me-1"></i> Importar
@@ -91,7 +80,7 @@
                             {% endif %}
                         </td>
                         <td class="text-center pe-4">
-                            <!-- Verificación Segura -->
+                            <!-- Verificación Segura de Botón de Edición -->
                             {% if request.user.is_superuser %}
                                 <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-light border rounded-circle shadow-sm" style="width: 32px; height: 32px;" title="Editar Unidad">
                                     <i class="fa-solid fa-pen-to-square text-primary"></i>
@@ -103,8 +92,6 @@
                                             <i class="fa-solid fa-pen-to-square text-primary"></i>
                                         </a>
                                     {% endif %}
-                                {% empty %}
-                                    <span class="text-muted small"><i class="fa-solid fa-lock me-1"></i>Solo Lectura</span>
                                 {% endfor %}
                             {% endif %}
                         </td>
