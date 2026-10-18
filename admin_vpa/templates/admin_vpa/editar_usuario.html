@@ -3,8 +3,13 @@
 {% block content %}
 <div class="row mb-4 align-items-center">
     <div class="col-md-7">
-        <h2 class="fw-bold text-dark"><i class="fa-solid fa-user-pen text-primary me-2"></i>Editar Usuario: {{ usuario_obj.username }}</h2>
-        <p class="text-muted mb-0">Modifica los datos personales, roles y permisos de acceso del usuario.</p>
+        {% if creando %}
+            <h2 class="fw-bold text-dark"><i class="fa-solid fa-user-plus text-primary me-2"></i>Registrar Nuevo Funcionario</h2>
+            <p class="text-muted mb-0">Crea una cuenta de acceso y asígnale su rol departamental en EMVEPRO C.A.</p>
+        {% else %}
+            <h2 class="fw-bold text-dark"><i class="fa-solid fa-user-pen text-primary me-2"></i>Configurar Usuario: {{ usuario_obj.username }}</h2>
+            <p class="text-muted mb-0">Modifica los datos personales, contraseña, roles y permisos de acceso.</p>
+        {% endif %}
     </div>
     <div class="col-md-5 text-md-end mt-3 mt-md-0">
         <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-outline-secondary fw-bold shadow-sm rounded-pill px-3">
@@ -16,16 +21,27 @@
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-            <div class="card-header bg-white py-3">
-                <span class="fw-bold text-dark"><i class="fa-solid fa-id-card text-secondary me-2"></i>Formulario de Configuración</span>
+            <div class="card-header bg-primary text-white py-3">
+                <span class="fw-bold"><i class="fa-solid fa-id-card me-2"></i>Ficha de Credenciales y Roles</span>
             </div>
             <div class="card-body p-4">
                 <form method="POST">
                     {% csrf_token %}
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-bold small text-uppercase text-secondary">Nombre de Usuario (Login)</label>
-                        {{ form.username }}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">Nombre de Usuario (Login)</label>
+                            {{ form.username }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold small text-uppercase text-secondary">
+                                <i class="fa-solid fa-key text-warning me-1"></i>Contraseña de Acceso
+                            </label>
+                            {{ form.nueva_password }}
+                            {% if form.nueva_password.help_text %}
+                                <small class="text-muted d-block mt-1" style="font-size: 0.72rem;">{{ form.nueva_password.help_text }}</small>
+                            {% endif %}
+                        </div>
                     </div>
 
                     <div class="row">
@@ -40,14 +56,18 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="form-label fw-bold small text-uppercase text-secondary">Correo Electrónico</label>
+                        <label class="form-label fw-bold small text-uppercase text-secondary">Correo Electrónico Institucional</label>
                         {{ form.email }}
                     </div>
 
                     <hr class="text-secondary opacity-25 my-4">
 
                     <!-- Sección de Roles (Grupos) -->
-                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-users text-primary me-2"></i>Asignación de Roles</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0"><i class="fa-solid fa-user-shield text-primary me-2"></i>Asignación de Rol Institucional (Departamento)</h6>
+                        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill">Recomendado</span>
+                    </div>
+                    <p class="text-muted small mb-3">Selecciona el departamento al que pertenece el funcionario para otorgarle sus permisos automáticamente:</p>
                     <div class="mb-4 bg-light p-3 rounded-3 border">
                         <div class="row">
                             {% for group in form.groups %}
@@ -58,7 +78,9 @@
                                 </div>
                             </div>
                             {% empty %}
-                            <div class="col-12 text-muted small">No hay roles creados en el sistema.</div>
+                            <div class="col-12 text-muted small">
+                                No hay roles creados. Ve a la lista de usuarios y presiona <strong>"Sincronizar Roles"</strong>.
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
@@ -66,29 +88,19 @@
                     <hr class="text-secondary opacity-25 my-4">
 
                     <!-- Sección de Permisos Específicos -->
-                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-lock text-success me-2"></i>Permisos Granulares (Específicos)</h6>
-                    <div class="mb-4 bg-light p-3 rounded-3 border" style="max-height: 280px; overflow-y: auto;">
-                        <div class="row">
-                            {% for perm in form.user_permissions %}
-                            <div class="col-md-6 mb-2">
-                                <div class="form-check">
-                                    {{ perm.tag }}
-                                    <label class="form-check-label small text-dark" for="{{ perm.id_for_label }}">{{ perm.choice_label }}</label>
-                                </div>
-                            </div>
-                            {% empty %}
-                            <div class="col-12 text-muted small">No hay permisos adicionales disponibles.</div>
-                            {% endfor %}
-                        </div>
+                    <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-lock text-success me-2"></i>Permisos Granulares Adicionales (Opcional)</h6>
+                    <div class="mb-4 bg-light p-3 rounded-3 border">
+                        {{ form.user_permissions }}
+                        <small class="text-muted d-block mt-2">Mantén presionada la tecla Ctrl (o Cmd) para seleccionar múltiples permisos individuales.</small>
                     </div>
 
                     <hr class="text-secondary opacity-25 my-4">
 
-                    <h6 class="fw-bold text-dark mb-3">Privilegios y Estado</h6>
+                    <h6 class="fw-bold text-dark mb-3">Privilegios de Cuenta y Estado</h6>
                     
                     <div class="form-check form-switch mb-2">
                         {{ form.is_active }}
-                        <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Usuario Activo (Permite iniciar sesión)</label>
+                        <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Usuario Activo (Permite iniciar sesión en el CRM)</label>
                     </div>
 
                     <div class="form-check form-switch mb-2">
@@ -98,12 +110,14 @@
 
                     <div class="form-check form-switch mb-4">
                         {{ form.is_superuser }}
-                        <label class="form-check-label fw-semibold text-danger" for="{{ form.is_superuser.id_for_label }}">Superusuario (Control total del sistema)</label>
+                        <label class="form-check-label fw-semibold text-danger" for="{{ form.is_superuser.id_for_label }}">Superusuario TI (Control total del sistema y base de datos)</label>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
-                        <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-light rounded-pill px-4 fw-bold me-md-2">Cancelar</a>
-                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm">Guardar Cambios</button>
+                        <a href="{% url 'admin_vpa:lista_usuarios' %}" class="btn btn-light border rounded-pill px-4 fw-bold me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold shadow-sm">
+                            <i class="fa-solid fa-floppy-disk me-1"></i> Guardar Usuario
+                        </button>
                     </div>
                 </form>
             </div>
