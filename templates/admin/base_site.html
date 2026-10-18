@@ -1,0 +1,51 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | EMVEPRO C.A.{% endblock %}
+
+{% block branding %}
+<div id="site-name">
+    <a href="{% url 'admin:index' %}" style="font-weight: 700; letter-spacing: -0.3px; color: #ffffff;">
+        <span style="color: #ffcc00;">●</span> EMVEPRO C.A. — Panel de Administración CRM
+    </a>
+</div>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+    :root {
+        --primary: #273376;
+        --secondary: #1e293b;
+        --accent: #ffcc00;
+        --primary-fg: #ffffff;
+        --header-color: #ffffff;
+        --header-bg: #273376;
+        --header-link-color: #ffcc00;
+        --breadcrumbs-bg: #1e285e;
+        --breadcrumbs-fg: #cbd5e1;
+        --link-fg: #273376;
+        --button-bg: #273376;
+        --button-hover-bg: #1e285e;
+        --default-button-bg: #198754;
+    }
+    #header {
+        background: #273376 !important;
+        border-bottom: 4px solid #ffcc00;
+    }
+    .module h2, .module caption, .inline-group h2 {
+        background: #273376 !important;
+        color: #ffffff !important;
+        font-weight: bold;
+    }
+    div.breadcrumbs {
+        background: #1a2252 !important;
+    }
+</style>
+{% endblock %}
+
+{% block nav-global %}
+<div style="padding: 6px 15px;">
+    <a href="/facturacion/" style="background: #ffcc00; color: #212529; padding: 5px 14px; border-radius: 50px; font-weight: bold; font-size: 12px; text-decoration: none;">
+        &larr; Volver al Panel Operativo CRM
+    </a>
+</div>
+{% endblock %}
