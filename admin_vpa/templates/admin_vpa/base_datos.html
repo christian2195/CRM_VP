@@ -13,6 +13,25 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MÓDULO DE RESPALDO (SOLO ADMIN TI)         -->
+<!-- ========================================== -->
+{% if request.user.is_superuser %}
+<div class="card border-0 shadow-sm rounded-4 mb-4 border-start border-4 border-danger bg-white">
+    <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-cloud-arrow-down text-danger me-2"></i>Respaldo Completo del Sistema</h5>
+            <p class="text-muted small mb-0">Descarga un snapshot (volcado en formato JSON) con todos los registros de usuarios, clientes, inventario y facturación. Útil para recuperación ante desastres o migración de servidor.</p>
+        </div>
+        <div class="text-md-end">
+            <a href="{% url 'descargar_respaldo_db' %}" class="btn btn-danger fw-bold rounded-pill shadow-sm px-4 text-nowrap">
+                <i class="fa-solid fa-download me-2"></i>Generar Backup
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
     <!-- Tarjeta de Detalles Técnicos -->
     <div class="col-md-4">
