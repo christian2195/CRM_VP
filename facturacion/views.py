@@ -19,8 +19,14 @@ from reportlab.graphics.shapes import Drawing
 
 from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
+from django.core.exceptions import PermissionDenied
 
-
+def tiene_rol(user, nombres_roles):
+    """Verifica si el usuario es superusuario o pertenece a alguno de los roles indicados."""
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name__in=nombres_roles).exists()
+    
 def fmt_moneda(valor):
     if valor is None or valor == '':
         valor = Decimal('0.00')
