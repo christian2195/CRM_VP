@@ -20,7 +20,33 @@ from reportlab.graphics.shapes import Drawing
 from .models import Factura, Cotizacion, Vehiculo, ItemCotizacion, Cliente
 from .forms import CotizacionForm, FacturaForm, VehiculoForm, ClienteForm
 from django.core.exceptions import PermissionDenied
+from functools import wraps
 
+# ==========================================
+# CONTROL DE ACCESO POR ROLES (RBAC)
+# ==========================================
+def requiere_rol(roles_permitidos):
+    """Decorador que bloquea el acceso si el usuario no tiene el rol adecuado."""
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            # El superusuario siempre tiene acceso total
+            if request.user.is_superuser:
+                return view_func(request, *args, **kwargs)
+            # Verifica si el usuario pertenece a alguno de los roles permitidos
+            if request.user.groups.filter(name__in=roles_permitidos).exists():
+                return view_func(request, *args, **kwargs)
+            
+            # Si no tiene el rol, lo expulsa al dashboard con un error
+            messages.error(request, "Acceso Denegado: Tu rol institucional no tiene privilegios para realizar esta acción.")
+            return redirect('dashboard')
+        return _wrapped_view
+    return decorator
+
+# Definición de quién puede tocar qué módulo:
+ROLES_INVENTARIO = ['Gerencia y Presidencia', 'Logistica e Inventario']
+ROLES_COMERCIO = ['Gerencia y Presidencia', 'Comercio y Ventas']
+ROLES_FACTURACION = ['Gerencia y Presidencia', 'Facturacion y Cobranza']
 def tiene_rol(user, nombres_roles):
     """Verifica si el usuario es superusuario o pertenece a alguno de los roles indicados."""
     if user.is_superuser:
