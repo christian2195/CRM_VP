@@ -82,8 +82,22 @@
         color: #273376 !important;
     }
     
+    /* CORRECCIÓN: Usar rgba con --bs-bg-opacity para respetar bg-opacity-10 en los contadores/badges */
     .bg-primary {
+        background-color: rgba(39, 51, 118, var(--bs-bg-opacity, 1)) !important;
+    }
+
+    /* Garantizar contraste perfecto en badges suaves (bg-opacity-10) */
+    .badge.bg-primary.bg-opacity-10 {
+        background-color: rgba(39, 51, 118, 0.12) !important;
+        color: #273376 !important;
+        border: 1px solid rgba(39, 51, 118, 0.25);
+    }
+
+    /* Garantizar texto blanco cuando el badge bg-primary es sólido */
+    .badge.bg-primary:not(.bg-opacity-10):not(.bg-opacity-25) {
         background-color: #273376 !important;
+        color: #ffffff !important;
     }
 
     /* Soporte para Tema Oscuro */
@@ -113,6 +127,11 @@
     body[data-theme="dark"] .table {
         color: #e2e8f0;
     }
+    body[data-theme="dark"] .badge.bg-primary.bg-opacity-10 {
+        background-color: rgba(255, 201, 7, 0.15) !important;
+        color: #FFC907 !important;
+        border-color: rgba(255, 201, 7, 0.3);
+    }
 </style>
 </head>
 <body data-theme="light">
@@ -138,8 +157,8 @@
                         </a>
                     </li>
 
-                    <!-- Cotizaciones y Clientes (Visible para Admin, Gerencia, Comercio y Facturación) -->
-                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Comercio y Ventas' or rol_actual == 'Facturacion y Cobranza' %}
+                    <!-- Cotizaciones y Clientes -->
+                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Comercio y Ventas' or rol_actual == 'Facturacion y Cobranza' or rol_actual == 'FACTURACION' %}
                     <li class="nav-item">
                         <a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'lista_cotizaciones' %}">
                             <i class="fa-solid fa-file-circle-plus me-1 text-warning"></i> Cotizaciones
@@ -152,15 +171,15 @@
                     </li>
                     {% endif %}
 
-                    <!-- Inventario (Visible para todos los roles operativos) -->
+                    <!-- Inventario -->
                     <li class="nav-item">
                         <a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'lista_vehiculos' %}">
                             <i class="fa-solid fa-warehouse me-1 text-secondary"></i> Inventario
                         </a>
                     </li>
 
-                    <!-- Facturas y Finanzas (Visible para Admin, Gerencia y Facturación/Cobranza) -->
-                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Facturacion y Cobranza' %}
+                    <!-- Facturas y Finanzas -->
+                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Facturacion y Cobranza' or rol_actual == 'FACTURACION' %}
                     <li class="nav-item">
                         <a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'historial_facturas' %}">
                             <i class="fa-solid fa-file-invoice text-info me-1"></i> Facturas
@@ -173,7 +192,7 @@
                     </li>
                     {% endif %}
 
-                    <!-- Botón al Panel Admin (Visible para Superusuarios y Gerencia) -->
+                    <!-- Botón al Panel Admin -->
                     {% if user.is_superuser or rol_actual == 'Gerencia y Presidencia' %}
                     <li class="nav-item ms-2 border-start ps-3 border-secondary-subtle">
                         <a class="nav-link fw-bold px-3 rounded-pill text-danger bg-danger bg-opacity-10 border border-danger-subtle" href="{% url 'admin_vpa:index' %}">
