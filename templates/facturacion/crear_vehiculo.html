@@ -82,13 +82,18 @@
                             {{ form.uso }}
                         </div>
 
-                        <div class="col-md-6">
+                        <!-- FILA CORREGIDA CON EL ESTATUS -->
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted">Combustible</label>
                             {{ form.tipo_combustible }}
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold small text-muted">Transmisión</label>
                             {{ form.transmision }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-primary">Estatus</label>
+                            {{ form.estado }}
                         </div>
 
                         <div class="col-md-3">
@@ -189,7 +194,6 @@
     </div>
 </form>
 
-<!-- Script para asegurar estilos de Bootstrap en los inputs si no están definidos en forms.py -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const inputs = document.querySelectorAll("input, select, textarea");
