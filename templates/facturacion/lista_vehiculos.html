@@ -17,25 +17,14 @@
             <i class="fa-solid fa-file-excel"></i>
         </a>
         
-        <!-- Verificación Segura Nativa de Django -->
-        {% if request.user.is_superuser %}
+        <!-- Verificación Segura Optimizada (Convirtiendo QuerySet a String) -->
+        {% if request.user.is_superuser or 'Logistica e Inventario' in request.user.groups.all|stringformat:"s" or 'Gerencia y Presidencia' in request.user.groups.all|stringformat:"s" %}
             <a href="{% url 'importar_inventario' %}" class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" title="Carga Masiva Excel">
                 <i class="fa-solid fa-upload me-1"></i> Importar
             </a>
             <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
                 <i class="fa-solid fa-plus me-1"></i> Nuevo
             </a>
-        {% else %}
-            {% for g in request.user.groups.all %}
-                {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
-                    <a href="{% url 'importar_inventario' %}" class="btn btn-secondary fw-bold shadow-sm rounded-pill px-3" title="Carga Masiva Excel">
-                        <i class="fa-solid fa-upload me-1"></i> Importar
-                    </a>
-                    <a href="{% url 'crear_vehiculo' %}" class="btn btn-primary fw-bold shadow-sm rounded-pill px-3">
-                        <i class="fa-solid fa-plus me-1"></i> Nuevo
-                    </a>
-                {% endif %}
-            {% endfor %}
         {% endif %}
     </div>
 </div>
@@ -80,19 +69,13 @@
                             {% endif %}
                         </td>
                         <td class="text-center pe-4">
-                            <!-- Verificación Segura de Botón de Edición -->
-                            {% if request.user.is_superuser %}
+                            <!-- Verificación Segura Optimizada para la tabla -->
+                            {% if request.user.is_superuser or 'Logistica e Inventario' in request.user.groups.all|stringformat:"s" or 'Gerencia y Presidencia' in request.user.groups.all|stringformat:"s" %}
                                 <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-light border rounded-circle shadow-sm" style="width: 32px; height: 32px;" title="Editar Unidad">
                                     <i class="fa-solid fa-pen-to-square text-primary"></i>
                                 </a>
                             {% else %}
-                                {% for g in request.user.groups.all %}
-                                    {% if g.name == 'Logistica e Inventario' or g.name == 'Gerencia y Presidencia' %}
-                                        <a href="{% url 'editar_vehiculo' vehiculo.id %}" class="btn btn-sm btn-light border rounded-circle shadow-sm" style="width: 32px; height: 32px;" title="Editar Unidad">
-                                            <i class="fa-solid fa-pen-to-square text-primary"></i>
-                                        </a>
-                                    {% endif %}
-                                {% endfor %}
+                                <span class="text-muted small"><i class="fa-solid fa-lock me-1"></i>Solo Lectura</span>
                             {% endif %}
                         </td>
                     </tr>
