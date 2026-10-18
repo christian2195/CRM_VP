@@ -28,4 +28,5 @@ urlpatterns = [
     path('facturas/exportar-excel/', views.exportar_facturas_excel, name='exportar_facturas_excel'),
     path('facturacion/imprimir-institucional-sin-sap/<int:factura_id>/', views.imprimir_factura_institucional_sin_sap, name='imprimir_factura_institucional_sin_sap'),
     path('sistema/respaldo-full/', views.descargar_respaldo_db, name='descargar_respaldo_db'),
+    path('sistema/restaurar-full/', views.subir_respaldo_db, name='subir_respaldo_db'),
 ]
