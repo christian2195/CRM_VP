@@ -102,7 +102,6 @@
             </button>
             <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
                 {% if user.is_authenticated %}
-                {% with rol_actual=user.groups.first.name %}
                 <ul class="navbar-nav align-items-center gap-1">
                     
                     <li class="nav-item">
@@ -111,7 +110,8 @@
                         </a>
                     </li>
 
-                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Comercio y Ventas' or rol_actual == 'Facturacion y Cobranza' or rol_actual == 'FACTURACION' %}
+                    <!-- ACTUALIZADO AL NUEVO ESQUEMA: Clientes y Cotizaciones -->
+                    {% if request.user.is_superuser or 'Gerencia' in request.user.groups.all|stringformat:"s" or 'Vehiculos' in request.user.groups.all|stringformat:"s" or 'Facturacion' in request.user.groups.all|stringformat:"s" %}
                     <li class="nav-item">
                         <a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'lista_cotizaciones' %}">
                             <i class="fa-solid fa-file-circle-plus me-1 text-warning"></i> Cotizaciones
@@ -130,7 +130,8 @@
                         </a>
                     </li>
 
-                    {% if user.is_superuser or not rol_actual or rol_actual == 'Gerencia y Presidencia' or rol_actual == 'Facturacion y Cobranza' or rol_actual == 'FACTURACION' %}
+                    <!-- ACTUALIZADO AL NUEVO ESQUEMA: Facturas y Finanzas -->
+                    {% if request.user.is_superuser or 'Gerencia' in request.user.groups.all|stringformat:"s" or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Administracion' in request.user.groups.all|stringformat:"s" %}
                     <li class="nav-item">
                         <a class="nav-link fw-medium px-3 rounded-pill" href="{% url 'historial_facturas' %}">
                             <i class="fa-solid fa-file-invoice text-info me-1"></i> Facturas
@@ -143,7 +144,8 @@
                     </li>
                     {% endif %}
 
-                    {% if user.is_superuser or rol_actual == 'Gerencia y Presidencia' %}
+                    <!-- Botón de Panel Admin -->
+                    {% if request.user.is_superuser or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
                     <li class="nav-item ms-2 border-start ps-3 border-secondary-subtle">
                         <a class="nav-link fw-bold px-3 rounded-pill text-danger bg-danger bg-opacity-10 border border-danger-subtle" href="{% url 'admin_vpa:index' %}">
                             <i class="fa-solid fa-shield-halved me-1"></i> Panel Admin
@@ -151,6 +153,7 @@
                     </li>
                     {% endif %}
 
+                    <!-- Perfil de Usuario con Badge Actualizado -->
                     <li class="nav-item dropdown ms-2">
                         <a class="nav-link fw-bold dropdown-toggle d-flex align-items-center gap-2" href="#" id="userDropdown" data-bs-toggle="dropdown">
                             <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width: 34px; height: 34px;">
@@ -159,8 +162,11 @@
                             <div class="d-flex flex-column text-start lh-1">
                                 <span>{{ user.username|title }}</span>
                                 <small class="text-secondary fw-normal" style="font-size: 0.7rem;">
-                                    {% if user.is_superuser %} Admin TI
-                                    {% elif rol_actual %} {{ rol_actual }}
+                                    {% if request.user.is_superuser %} Admin TI
+                                    {% elif 'Gerencia' in request.user.groups.all|stringformat:"s" %} Presidencia
+                                    {% elif 'Vehiculos' in request.user.groups.all|stringformat:"s" %} Vehículos
+                                    {% elif 'Facturacion' in request.user.groups.all|stringformat:"s" %} Facturación
+                                    {% elif 'Administracion' in request.user.groups.all|stringformat:"s" %} Administración
                                     {% else %} Operador {% endif %}
                                 </small>
                             </div>
@@ -169,8 +175,11 @@
                             <li class="px-3 py-2 border-bottom mb-1">
                                 <span class="d-block small text-muted">Rol Institucional:</span>
                                 <span class="badge bg-primary rounded-pill mt-1">
-                                    {% if user.is_superuser %} Administrador TI
-                                    {% elif rol_actual %} {{ rol_actual }}
+                                    {% if request.user.is_superuser %} Administrador TI
+                                    {% elif 'Gerencia' in request.user.groups.all|stringformat:"s" %} Gerencia y Presidencia
+                                    {% elif 'Vehiculos' in request.user.groups.all|stringformat:"s" %} División de Vehículos
+                                    {% elif 'Facturacion' in request.user.groups.all|stringformat:"s" %} División de Facturación
+                                    {% elif 'Administracion' in request.user.groups.all|stringformat:"s" %} Gerencia de Administración
                                     {% else %} Usuario Estándar {% endif %}
                                 </span>
                             </li>
@@ -191,7 +200,6 @@
                         </button>
                     </li>
                 </ul>
-                {% endwith %}
                 {% endif %}
             </div>
         </div>
