@@ -13,9 +13,9 @@
             <strong class="text-primary">
                 {% if user.is_superuser %}Administración General
                 {% elif 'Gerencia' in user.groups.all|stringformat:"s" %}Gerencia y Presidencia
-                {% elif 'Comercio' in user.groups.all|stringformat:"s" %}Comercio y Ventas
-                {% elif 'Facturacion' in user.groups.all|stringformat:"s" %}Facturación y Cobranza
-                {% elif 'Logistica' in user.groups.all|stringformat:"s" %}Logística e Inventario
+                {% elif 'Vehiculos' in user.groups.all|stringformat:"s" %}División de Vehículos
+                {% elif 'Facturacion' in user.groups.all|stringformat:"s" %}División de Facturación
+                {% elif 'Administracion' in user.groups.all|stringformat:"s" %}Gerencia de Administración
                 {% else %}Operaciones
                 {% endif %}
             </strong>. Aquí tienes el resumen de tu área.
@@ -40,9 +40,9 @@
     {% endif %}
 
     <!-- ========================================== -->
-    <!-- MÉTRICAS PARA GERENCIA Y COMERCIO          -->
+    <!-- MÉTRICAS PARA VEHÍCULOS (COTIZACIONES)     -->
     <!-- ========================================== -->
-    {% if request.user.is_superuser or 'Comercio' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+    {% if request.user.is_superuser or 'Vehiculos' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
         <div class="col-md-3">
             <div class="card border-0 shadow-sm rounded-4 bg-white h-100 border-start border-4 border-warning">
                 <div class="card-body p-4">
@@ -62,9 +62,9 @@
     {% endif %}
 
     <!-- ========================================== -->
-    <!-- MÉTRICAS PARA LOGÍSTICA (E INVENTARIO)     -->
+    <!-- MÉTRICAS PARA VEHÍCULOS (INVENTARIO)       -->
     <!-- ========================================== -->
-    {% if request.user.is_superuser or 'Logistica' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" or 'Comercio' in request.user.groups.all|stringformat:"s" %}
+    {% if request.user.is_superuser or 'Vehiculos' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
         <div class="col-md-3">
             <div class="card border-0 shadow-sm rounded-4 bg-light h-100 border border-success-subtle">
                 <div class="card-body p-4 d-flex justify-content-between align-items-center">
@@ -87,8 +87,8 @@
 <!-- ========================================== -->
 <div class="row g-4">
     
-    <!-- COLUMNA IZQUIERDA: Cotizaciones Pendientes (Para Comercio, Facturación y Gerencia) -->
-    {% if request.user.is_superuser or 'Comercio' in request.user.groups.all|stringformat:"s" or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+    <!-- COLUMNA IZQUIERDA: Cotizaciones Pendientes -->
+    {% if request.user.is_superuser or 'Vehiculos' in request.user.groups.all|stringformat:"s" or 'Facturacion' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
     <div class="col-xl-6">
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
             <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
@@ -172,8 +172,8 @@
         </div>
         {% endif %}
 
-        <!-- Para Logística e Inventario: Últimos Vehículos Ingresados -->
-        {% if request.user.is_superuser or 'Logistica' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
+        <!-- Para División de Vehículos: Últimos Vehículos Ingresados -->
+        {% if request.user.is_superuser or 'Vehiculos' in request.user.groups.all|stringformat:"s" or 'Gerencia' in request.user.groups.all|stringformat:"s" %}
         <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
             <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
                 <span class="fw-bold text-dark"><i class="fa-solid fa-truck-ramp-box text-secondary me-2"></i>Últimos Ingresos al Inventario</span>
@@ -219,4 +219,24 @@
 
     </div>
 </div>
+
+<script>
+    // Pequeño script para equilibrar la altura de las tarjetas si es necesario
+    document.addEventListener("DOMContentLoaded", function() {
+        const checkHeights = () => {
+            if (window.innerWidth > 1199) {
+                const cols = document.querySelectorAll('.row.g-4 > .col-xl-6');
+                if (cols.length === 2) {
+                    const leftCol = cols[0].querySelector('.card');
+                    const rightCol = cols[1];
+                    if (leftCol && rightCol) {
+                        leftCol.style.height = rightCol.offsetHeight + 'px';
+                    }
+                }
+            }
+        };
+        window.setTimeout(checkHeights, 100);
+        window.addEventListener('resize', checkHeights);
+    });
+</script>
 {% endblock %}
